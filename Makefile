@@ -12,15 +12,15 @@ SERVER_SRC := $(wildcard cmd/*.go datanode/*.go master/*.go metanode/*.go)
 CLIENT_SRC := $(wildcard client/*.go client/fs/*.go sdk/*.go)
 CLIENT2_SRC := $(wildcard clientv2/*.go clientv2/fs/*.go sdk/*.go)
 
-RM := $(shell [[ -x /bin/rm ]] && echo "/bin/rm -rf" || echo "/usr/bin/rm -rf" )
+RM := $(shell [[ -x /bin/rm ]] && echo "/bin/rm -rf" || echo "/bin/rm -rf" )
 
 default: all
 
 phony := all
 all: build
 
-phony += build server client client2
-build: server client
+phony += build server #client client2
+build: server #client
 
 server: $(BIN_SERVER)
 
