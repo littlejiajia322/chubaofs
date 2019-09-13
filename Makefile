@@ -8,8 +8,7 @@ BIN_CLIENT2 := $(BIN_PATH)/cfs-client2
 
 COMMON_SRC := build/build.sh Makefile
 COMMON_SRC += $(wildcard storage/*.go util/*/*.go util/*.go repl/*.go raftstore/*.go proto/*.go)
-SERVER_SRC := $(wildcard cmd/*.go authnode/*.go)
-#datanode/*.go master/*.go metanode/*.go)
+SERVER_SRC := $(wildcard cmd/*.go authnode/*.go datanode/*.go master/*.go metanode/*.go)
 CLIENT_SRC := $(wildcard client/*.go client/fs/*.go sdk/*.go)
 CLIENT2_SRC := $(wildcard clientv2/*.go clientv2/fs/*.go sdk/*.go)
 

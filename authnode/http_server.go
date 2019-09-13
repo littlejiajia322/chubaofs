@@ -1,6 +1,7 @@
 package authnode
 
 import "net/http"
+import "log"
 
 func (m *Server) startHTTPService() {
 	go func() {

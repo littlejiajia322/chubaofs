@@ -9,8 +9,9 @@ require (
 	github.com/facebookgo/ensure v0.0.0-20160127193407-b4ab57deab51 // indirect
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/subset v0.0.0-20150612182917-8dac2c3c4870 // indirect
+	github.com/go-delve/delve v1.3.1
 	github.com/google/btree v1.0.0 // indirect
-	github.com/jacobsa/daemonize v0.0.0-20160101105449-e460293e890f // indirect
+	github.com/jacobsa/daemonize v0.0.0-20160101105449-e460293e890f
 	github.com/jacobsa/fuse v0.0.0-20180417054321-cd3959611bcb
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
