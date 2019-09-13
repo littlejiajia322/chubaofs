@@ -3,8 +3,7 @@ package authnode
 import (
 	"net/http/httputil"
 	"sync"
-
-	//"github.com/go-delve/delve/pkg/config"
+	"github.com/chubaofs/chubaofs/util/config"
 )
 
 // Server represents the server in a cluster
@@ -123,4 +122,14 @@ func (m *Server) handleFunctions() {
 	http.Handle(proto.GetTopologyView, m.handlerWithInterceptor())
 */
 	return
+}
+
+// Shutdown closes the server
+func (m *Server) Shutdown() {
+	//m.wg.Done()
+}
+
+// Sync waits for the execution termination of the server
+func (m *Server) Sync() {
+	//m.wg.Wait()
 }

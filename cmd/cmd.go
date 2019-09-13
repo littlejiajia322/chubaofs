@@ -57,12 +57,14 @@ const (
 	RoleMaster = "master"
 	RoleMeta   = "metanode"
 	RoleData   = "datanode"
+	RoleAuth   = "authnode"
 )
 
 const (
 	ModuleMaster = "master"
 	ModuleMeta   = "metaNode"
 	ModuleData   = "dataNode"
+	ModuleAuth   = "authNode"
 )
 
 const (
@@ -159,6 +161,9 @@ func main() {
 	case RoleData:
 		server = datanode.NewServer()
 		module = ModuleData
+	case RoleAuth:
+		server = authnode.NewServer()
+		module = ModuleAuth
 	default:
 		daemonize.SignalOutcome(fmt.Errorf("Fatal: role mismatch: %v", role))
 		os.Exit(1)
