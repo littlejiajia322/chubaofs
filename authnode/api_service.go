@@ -7,6 +7,7 @@ import (
 
 	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/log"
 
 	"bytes"
@@ -23,15 +24,57 @@ import (
 	"time"
 )
 
-func (m *Server) extractClientInfo(r *http.Request) (name string, target string, ip string, ts string, err error) {
+func keyNotFound(name string) (err error) {
+	return errors.NewErrorf("parameter %v not found", name)
+}
+
+func sendErrReply(w http.ResponseWriter, r *http.Request, httpReply *proto.HTTPReply) {
+	log.LogInfof("URL[%v],remoteAddr[%v],response err[%v]", r.URL, r.RemoteAddr, httpReply)
+	reply, err := json.Marshal(httpReply)
+	if err != nil {
+		log.LogErrorf("fail to marshal http reply[%v]. URL[%v],remoteAddr[%v] err:[%v]", httpReply, r.URL, r.RemoteAddr, err)
+		http.Error(w, "fail to marshal http reply", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(reply)))
+	if _, err = w.Write(reply); err != nil {
+		log.LogErrorf("fail to write http reply[%s] len[%d].URL[%v],remoteAddr[%v] err:[%v]", string(reply), len(reply), r.URL, r.RemoteAddr, err)
+	}
+	return
+}
+
+func (m *Server) extractClientInfo(r *http.Request) (client string, target string, err error) {
+	if err = r.ParseForm(); err != nil {
+		return
+	}
+
+	if client = r.FormValue(clientID); client == "" {
+		err = keyNotFound(clientID)
+		return
+	}
+
+	if target = r.FormValue(targetService); target == "" {
+		err = keyNotFound(targetService)
+		return
+	}
 	return
 }
 
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
-	/*var (
-		name    string
-		target    string
-	)*/
+	var (
+		client string
+		//ip       string
+		target string
+		err    error
+	)
+
+	if client, target, err = m.extractClientInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("clientID=%s service=%s\n", client, target)
 
 	sendOkReply(w, r, newSuccessHTTPReply("Hello World!"))
 }

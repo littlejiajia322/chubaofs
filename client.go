@@ -16,12 +16,16 @@ func keepLines(s string, n int) string {
 
 func main() {
 	// We can use POST form to get result, too.
-	resp, err = http.PostForm("http://localhost:8080",
-		url.Values{"q": {"github"}})
+	resp, err := http.PostForm("http://localhost:8080/client/getticket",
+		url.Values{"clientID": {"client1"}, "service": {"master"}})
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
-	fmt.Println("post:\n", keepLines(string(body), 3))
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Println("post:\n", keepLines(string(body), 3))
+	fmt.Println("respose: %s", string(body))
 }
