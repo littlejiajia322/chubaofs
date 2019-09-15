@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
@@ -61,6 +62,8 @@ func (m *Server) extractClientInfo(r *http.Request) (client string, target strin
 	return
 }
 
+var key_map = map[string]string{"client1": "11111111111111111111111111111111"}
+
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
 		client string
@@ -75,6 +78,18 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("clientID=%s service=%s\n", client, target)
+
+	// TODO: check db
+	if _, ok := key_map[client]; !ok {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Sprintf("clientID=%s not existing!", client)})
+		return
+	}
+
+	if strings.Compare(target, "master") != 0 && strings.Compare(target, "metanode") != 0 && strings.Compare(target, "datanode") != 0 {
+		fmt.Printf(target + "ddddd")
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
 
 	sendOkReply(w, r, newSuccessHTTPReply("Hello World!"))
 }
