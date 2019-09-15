@@ -1,10 +1,15 @@
 package authnode
 
 import (
+	"fmt"
 	"net/http/httputil"
 	"sync"
+
 	"github.com/chubaofs/chubaofs/util/config"
 	//"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/errors"
+	//"github.com/chubaofs/chubaofs/util/exporter"
+	"github.com/chubaofs/chubaofs/util/log"
 )
 
 // Server represents the server in a cluster
@@ -47,6 +52,7 @@ const (
 
 // NewServer creates a new server
 func NewServer() *Server {
+	fmt.Printf("New auth Server\n")
 	return &Server{}
 }
 
@@ -64,35 +70,37 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 func (m *Server) Start(cfg *config.Config) (err error) {
 	/*m.config = newClusterConfig()
 	m.leaderInfo = &LeaderInfo{}
-	m.reverseProxy = m.newReverseProxy()
+	m.reverseProxy = m.newReverseProxy()*/
 	if err = m.checkConfig(cfg); err != nil {
 		log.LogError(errors.Stack(err))
 		return
-	}
-	m.rocksDBStore = raftstore.NewRocksDBStore(m.storeDir, LRUCacheSize, WriteBufferSize)
-	m.initFsm()
-	m.initCluster()
-	if err = m.createRaftServer(); err != nil {
-		log.LogError(errors.Stack(err))
-		return
-	}
-	m.cluster.partition = m.partition
-	m.cluster.idAlloc.partition = m.partition
-	m.cluster.scheduleTask()*/
+	} /*
+		m.rocksDBStore = raftstore.NewRocksDBStore(m.storeDir, LRUCacheSize, WriteBufferSize)
+		m.initFsm()
+		m.initCluster()
+		if err = m.createRaftServer(); err != nil {
+			log.LogError(errors.Stack(err))
+			return
+		}
+		m.cluster.partition = m.partition
+		m.cluster.idAlloc.partition = m.partition
+		m.cluster.scheduleTask()*/
 	m.startHTTPService()
 	/*exporter.Init(m.clusterName, ModuleName, cfg)
 	metricsService := newMonitorMetrics(m.cluster)
-	metricsService.start()
-	m.wg.Add(1)*/
+	metricsService.start()*/
+	m.wg.Add(1)
 	return nil
 }
 
 // Shutdown closes the server
 func (m *Server) Shutdown() {
-	//m.wg.Done()
+	m.wg.Done()
 }
 
 // Sync waits for the execution termination of the server
 func (m *Server) Sync() {
-	//m.wg.Wait()
+	fmt.Printf("Sync start\n")
+	m.wg.Wait()
+	fmt.Printf("Sync end\n")
 }

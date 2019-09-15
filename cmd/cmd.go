@@ -30,10 +30,10 @@ import (
 
 	"github.com/jacobsa/daemonize"
 
+	"github.com/chubaofs/chubaofs/authnode"
 	"github.com/chubaofs/chubaofs/datanode"
 	"github.com/chubaofs/chubaofs/master"
 	"github.com/chubaofs/chubaofs/metanode"
-	"github.com/chubaofs/chubaofs/authnode"
 	"github.com/chubaofs/chubaofs/util/config"
 	"github.com/chubaofs/chubaofs/util/log"
 	"github.com/chubaofs/chubaofs/util/ump"
