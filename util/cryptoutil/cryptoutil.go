@@ -9,20 +9,20 @@ import (
 	"io"
 )
 
-func Pad(src []byte) []byte {
+func pad(src []byte) []byte {
 	padding := aes.BlockSize - len(src)%aes.BlockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(src, padtext...)
 }
 
-func Unpad(src []byte) []byte {
+func unpad(src []byte) []byte {
 	length := len(src)
 	unpadding := int(src[length-1])
 	return src[:(length - unpadding)]
 }
 
 // CBC
-func encryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
+func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 	var (
 		block cipher.Block
 	)
@@ -32,7 +32,7 @@ func encryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 		return
 	}
 
-	paddedText := Pad(plaintext)
+	paddedText := pad(plaintext)
 
 	if len(paddedText)%aes.BlockSize != 0 {
 		err = fmt.Errorf("paddedText [len=%d] is not a multiple of the block size", len(paddedText))
@@ -59,7 +59,7 @@ func encryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 	return
 }
 
-func decryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
+func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	var block cipher.Block
 
 	if block, err = aes.NewCipher(key); err != nil {
@@ -77,7 +77,7 @@ func decryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	cbc := cipher.NewCBCDecrypter(block, iv)
 	cbc.CryptBlocks(ciphertext, ciphertext)
 
-	plaintext = Unpad(ciphertext)
+	plaintext = unpad(ciphertext)
 
 	return
 }
