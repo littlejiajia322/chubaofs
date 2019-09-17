@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
@@ -38,7 +39,7 @@ func sendErrReply(w http.ResponseWriter, r *http.Request, httpReply *proto.HTTPR
 	return
 }
 
-func (m *Server) extractClientInfo(r *http.Request) (client string, target string, err error) {
+func (m *Server) extractClientInfo(r *http.Request) (client string, message string, err error) {
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -48,17 +49,16 @@ func (m *Server) extractClientInfo(r *http.Request) (client string, target strin
 		return
 	}
 
-	if target = r.FormValue(targetService); target == "" {
-		err = keyNotFound(targetService)
+	if message = r.FormValue(encryptedMessage); message == "" {
+		err = keyNotFound(encryptedMessage)
 		return
 	}
 	return
 }
 
-func verifyMessage(message string, key []byte) (err error) {
+func decodeMessage(message string, key []byte) (plaintext []byte, err error) {
 	var (
-		cipher    []byte
-		plaintext []byte
+		cipher []byte
 	)
 
 	if cipher, err = base64.StdEncoding.DecodeString(message); err != nil {
@@ -68,56 +68,105 @@ func verifyMessage(message string, key []byte) (err error) {
 	if plaintext, err = cryptoutil.AesDecryptCBC(key, cipher); err != nil {
 		return
 	}
+	return
+}
 
-	//plaintext := Unpad(paddingtext)
-	fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
-
+func verifyMessage(plaintext []byte, key []byte) (err error) {
 	checksum2 := make([]byte, 16)
 	copy(checksum2, plaintext[8:24])
-	fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
+	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
 	filltext := bytes.Repeat([]byte{byte(0)}, 16)
 	copy(plaintext[8:], filltext[:])
-	fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
+	//fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
 	checksum3 := md5.Sum(plaintext)
-	fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
-	fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum3[:]))
+	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
+	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum3[:]))
 
+	// verify checksum
 	if bytes.Compare(checksum2, checksum3[:]) != 0 {
-		panic("not equal")
+		err = fmt.Errorf("MD5 not matched")
 	}
 	return
 }
 
-var key_map = map[string]string{"client1": "11111111111111111111111111111111"}
+func extractJsonByteArray(plaintext []byte) (jarray []byte, err error) {
+	if len(plaintext) <=  8 + 16 {
+		err = fmt.Errorf("invalid json input")
+		return
+	}
+	jarray = make([]byte, len(plaintext) - 16 - 8)
+	copy(jarray, plaintext[8 + 16:])
+	return
+}
+
+type MsgClientAuthReq struct {
+	ClientID string `json:"ClientID"`
+	Service  string `json:"Service"`
+	Ip       string `json:"Ip"`
+	Ts       int64  `json:"Ts"`
+}
+
+var key_map = map[string]string{"client1": "11111111111111111111111111111111", "master": "22222222222222222222222222222222"}
 
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
 		client string
 		//ip       string
-		target string
-		err    error
+		message   string
+		plaintext []byte
+		jarray    []byte
+		err       error
+		jobj      MsgClientAuthReq
 	)
 
-	if client, target, err = m.extractClientInfo(r); err != nil {
+	if client, message, err = m.extractClientInfo(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	fmt.Printf("clientID=%s service=%s\n", client, target)
+	fmt.Printf("clientID=%s message=%s\n", client, message)
 
 	// TODO: check db
 	if _, ok := key_map[client]; !ok {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Sprintf("clientID=%s not existing!", client)})
 		return
 	}
+	key := []byte(key_map[client])
 
-	if strings.Compare(target, "master") != 0 && strings.Compare(target, "metanode") != 0 && strings.Compare(target, "datanode") != 0 {
-		fmt.Printf(target + "ddddd")
+	if plaintext, err = decodeMessage(message, key); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMSGDecodeError, Msg: err.Error()})
+		return
+	}
+
+	if err = verifyMessage(plaintext, key); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMSGVerifyError, Msg: err.Error()})
+		return
+	}
+
+	if jarray, err = extractJsonByteArray(plaintext); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+	fmt.Println(string(jarray) + "\n")
+
+	if err = json.Unmarshal(jarray, &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println(jobj.ClientID, jobj.Ip, jobj.Service)
+
+	if time.Now().Unix()-jobj.Ts >= 5 * 60 { // TODO: const
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("req ts is timeout").Error()})
+		return
+	}
+	if strings.Compare(jobj.Service, "master") != 0 && strings.Compare(jobj.Service, "metanode") != 0 && strings.Compare(jobj.Service, "datanode") != 0 {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	sendOkReply(w, r, newSuccessHTTPReply("Hello World!"))
+	return
 }
 
 func newSuccessHTTPReply(data interface{}) *proto.HTTPReply {

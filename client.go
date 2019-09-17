@@ -8,9 +8,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	rand2 "math/rand"
+	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -147,27 +151,37 @@ func verifyMessage(message string, key []byte) (err error) {
 }
 
 type authEncReq struct {
-	clientID string
-	service  string
-	ip       string
-	ts       int64
+	ClientID string
+	Service  string
+	Ip       string
+	Ts       int64
 }
 
 func main() {
 	var (
-		err     error
-		message string
+		err          error
+		message_json []byte
+		message      string
 	)
 	clientID := "client1"
 	service := "master"
 	ip := "123456789"
 	ts := time.Now().Unix()
 	// construct request body
-	message_struct := authEncReq{clientID: clientID, service: service, ip: ip, ts: ts}
+	message_struct := authEncReq{ClientID: clientID, Service: service, Ip: ip, Ts: ts}
+	var message_struct2 authEncReq
+	if message_json, err = json.Marshal(message_struct); err != nil {
+		panic(err)
+	}
+	fmt.Printf(string(message_json) + "\n")
+
+	if err = json.Unmarshal(message_json, &message_struct2); err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s %s %s \n", message_struct2.ClientID, message_struct2.Ip, message_struct2.Service)
 
 	// encrption
-	message, err = createEncReq([]byte(fmt.Sprintf("%v", message_struct)), []byte("11111111111111111111111111111111"))
-
+	message, err = createEncReq(message_json, []byte("11111111111111111111111111111111"))
 	if err != nil {
 		panic(err)
 	}
@@ -175,20 +189,20 @@ func main() {
 	if err = verifyMessage(message, []byte("11111111111111111111111111111111")); err != nil {
 		panic(err)
 	}
-	/*
-		// We can use POST form to get result, too.
-		resp, err := http.PostForm("http://localhost:8081/client/getticket",
-			url.Values{"clientID": {"client1"}, "message": {message}})
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
-		body, err2 := ioutil.ReadAll(resp.Body)
-		if err2 != nil {
-			panic(err2)
-		}
-		//fmt.Println("post:\n", keepLines(string(body), 3))
-		fmt.Printf("respose: %s", string(body))*/
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/client/getticket",
+		url.Values{"ClientID": {"client1"}, "Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Println("post:\n", keepLines(string(body), 3))
+	fmt.Printf("respose: %s", string(body))
 
 	return
 }

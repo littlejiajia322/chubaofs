@@ -16,6 +16,7 @@ package authnode
 
 // Keys in the request
 const (
-	clientID      = "clientID"
-	targetService = "service"
+	clientID = "ClientID"
+	//targetService = "service"
+	encryptedMessage = "Message"
 )

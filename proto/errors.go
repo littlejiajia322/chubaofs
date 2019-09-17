@@ -57,6 +57,9 @@ var (
 	ErrNoEnoughReplica                 = errors.New("no enough replicas")
 	ErrNoLeader                        = errors.New("no leader")
 	ErrVolAuthKeyNotMatch              = errors.New("client and server auth key do not match")
+
+	ErrMSGDecodeError                  = errors.New("message decode error")
+	ErrMSGVerifyError                  = errors.New("message verification error")
 )
 
 // http response error code and error message definitions
@@ -94,6 +97,8 @@ const (
 	ErrCodeNoEnoughReplica
 	ErrCodeNoLeader
 	ErrCodeVolAuthKeyNotMatch
+	ErrCodeMSGDecodeError
+	ErrCodeMSGVerifyError
 )
 
 // Err2CodeMap error map to code
@@ -131,4 +136,6 @@ var Err2CodeMap = map[error]int32{
 	ErrNoEnoughReplica:                 ErrCodeNoEnoughReplica,
 	ErrNoLeader:                        ErrCodeNoLeader,
 	ErrVolAuthKeyNotMatch:              ErrCodeVolAuthKeyNotMatch,
+	ErrMSGDecodeError:                  ErrCodeMSGDecodeError,
+	ErrMSGVerifyError:                  ErrCodeMSGVerifyError,
 }
