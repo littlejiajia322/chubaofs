@@ -19,7 +19,7 @@ func main() {
 		message      string
 	)
 	clientID := "client1"
-	serviceID := proto.MasterService
+	serviceID := proto.MasterServiceID
 	ip := "123456789"
 	ts := time.Now().Unix()
 	// construct request body

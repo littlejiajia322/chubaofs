@@ -93,24 +93,38 @@ func genTicket(serviceID proto.ServiceID, IP []byte, caps []byte) (ticket proto.
 	return
 }
 
-func genClientAuthResponse(clientID string, serviceID proto.ServiceID, r *http.Request) (resp proto.MsgClientAuthReply, err error) {
+func genClientAuthResponse(clientID string, ts int64, serviceID proto.ServiceID, r *http.Request) (res string, err error) {
 	var (
 		jticket []byte
+		jresp []byte
+		resp proto.MsgClientAuthResp
 	)
+
 	resp.Type = proto.ServiceID2MsgRespMap[serviceID]
 	resp.ClientID = clientID
 	resp.ServiceID = serviceID
 	resp.IP = getIPAdress(r)
-	//ts + 1
+	resp.Ts = ts + 1;
 	ticket := genTicket(serviceID, []byte(resp.IP), []byte(`{"master":"yes"}`))
 	resp.SessionKey = ticket.SessionKey
+
 	if jticket, err = json.Marshal(ticket); err != nil {
 		return
 	}
+	// TODO key
 	key := []byte(keymap[proto.ServiceID2NameMap[serviceID]])
 	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, key); err != nil {
 		return
 	}
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		return
+	}
+
+	if res, err = cryptoutil.EncodeMessage(jresp, authMasterKey), err != nil {
+		return
+	}
+
 	return
 }
 
@@ -172,7 +186,9 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendOkReply(w, r, newSuccessHTTPReply("Hello World!"))
+
+
+	sendOkReply(w, r, newSuccessHTTPReply(`"key":"Hello World!"`))
 	return
 }
 

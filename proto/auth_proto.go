@@ -145,8 +145,8 @@ type MsgClientAuthReq struct {
 	Ts        int64     `json:"ts"`
 }
 
-// MsgClientAuthReply defines the message from authnode to client
-type MsgClientAuthReply struct {
+// MsgClientAuthResp defines the message from authnode to client
+type MsgClientAuthResp struct {
 	Type      MsgType   `json:"type"`
 	ClientID  string    `json:"client_id"`
 	ServiceID ServiceID `json:"service_id"`
