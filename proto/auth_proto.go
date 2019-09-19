@@ -14,13 +14,22 @@
 
 package proto
 
+// ServiceID defines the type of tickets
+type ServiceID uint32
+
+// MsgType defines the type of req/resp for message
+type MsgType uint32
+
+// Nonce defines the nonce to mitigate the replay attack
+type Nonce uint64
+
 // api
 const (
 	// Client APIs
-	ClientGetTicket                = "/client/getticket"
+	ClientGetTicket = "/client/getticket"
 
-  // Admin APIs
-  AdminCreateUser                = "/admin/createuser"
+	// Admin APIs
+	AdminCreateUser = "/admin/createuser"
 
 	//raft node APIs
 
@@ -29,6 +38,135 @@ const (
 	// Operation response
 
 )
+
+const (
+	// AuthServiceID defines ticket for authnode access (not supported)
+	AuthServiceID ServiceID = 0x1000
+
+	// MasterServiceID defines ticket for master access
+	MasterServiceID ServiceID = 0x2000
+
+	// MetaServiceID defines ticket for metanode access (not supported)
+	MetaServiceID ServiceID = 0x3000
+
+	// DataServiceID defines ticket for datanode access (not supported)
+	DataServiceID ServiceID = 0x4000
+)
+
+const (
+	// MsgAuthTicketReq request type for an auth ticket
+	MsgAuthTicketReq MsgType = 0x10000
+
+	// MsgAuthTicketResp respose type for an auth ticket
+	MsgAuthTicketResp MsgType = 0x20000
+
+	// MsgMasterTicketReq request type for a master ticket
+	MsgMasterTicketReq MsgType = 0x30000
+
+	// MsgMasterTicketResp response type for a master ticket
+	MsgMasterTicketResp MsgType = 0x40000
+
+	// MsgMetaTicketReq request type for a metanode ticket
+	MsgMetaTicketReq MsgType = 0x50000
+
+	// MsgMetaTicketResp response type for a metanode ticket
+	MsgMetaTicketResp MsgType = 0x60000
+
+	// MsgDataTicketReq request type for a datanode ticket
+	MsgDataTicketReq MsgType = 0x70000
+
+	// MsgDataTicketResp response type for a datanode ticket
+	MsgDataTicketResp MsgType = 0x80000
+)
+
+// ServiceID2MsgReqMap map serviceID to Auth msg request
+var ServiceID2MsgReqMap = map[ServiceID]MsgType{
+	AuthServiceID:   MsgAuthTicketReq,
+	MasterServiceID: MsgMasterTicketReq,
+	MetaServiceID:   MsgMetaTicketReq,
+	DataServiceID:   MsgDataTicketReq,
+}
+
+// ServiceID2MsgRespMap map serviceID to Auth msg response
+var ServiceID2MsgRespMap = map[ServiceID]MsgType{
+	AuthServiceID:   MsgAuthTicketResp,
+	MasterServiceID: MsgMasterTicketResp,
+	MetaServiceID:   MsgMetaTicketResp,
+	DataServiceID:   MsgDataTicketResp,
+}
+
+// ServiceID2NameMap map serviceID to Auth msg response
+var ServiceID2NameMap = map[ServiceID]string{
+	AuthServiceID:   "AuthService",
+	MasterServiceID: "MasterService",
+	MetaServiceID:   "MetaService",
+	DataServiceID:   "DataService",
+}
+
+// ServiceName2IDMap map serviceID to Auth msg response
+var ServiceName2IDMap = map[string]ServiceID{
+	"AuthService":   AuthServiceID,
+	"MasterService": MasterServiceID,
+	"MetaService":   MetaServiceID,
+	"DataService":   DataServiceID,
+}
+
+/*
+* MITM thread:
+*      (1) talking to the right party (nonce, key encryption)
+*      (2) replay attack (IP, timestamp constrains)
+*
+* Other thread: Client capability changes (ticket timestamp)
+ */
+
+// Ticket is a temperary struct to store the permission/caps for a client to
+// access principle
+type Ticket struct {
+	Version    uint8     `json:"version"`
+	ServiceID  ServiceID `json:"service_id"`
+	SessionKey CryptoKey `json:"session_key"`
+	Exp        int64     `json:"exp"`
+	IP         []byte    `json:"ip"`
+	Caps       []byte    `json:"caps"`
+}
+
+// CryptoKey store the session key
+type CryptoKey struct {
+	Ctime int64  `json:"c_time"`
+	Key   []byte `json:"key"`
+}
+
+// MsgClientAuthReq defines the message from client to authnode
+type MsgClientAuthReq struct {
+	Type      MsgType   `json:"type"`
+	ClientID  string    `json:"client_id"`
+	ServiceID ServiceID `json:"service_id"`
+	IP        string    `json:"ip"`
+	Ts        int64     `json:"ts"`
+}
+
+// MsgClientAuthReply defines the message from authnode to client
+type MsgClientAuthReply struct {
+	Type      MsgType   `json:"type"`
+	ClientID  string    `json:"client_id"`
+	ServiceID ServiceID `json:"service_id"`
+	IP        string    `json:"ip"`
+	Ts         int64     `json:"ts"`
+	Ticket     string    `json:"ticket"`
+	SessionKey CryptoKey `json:"session_key"`
+}
+
+// IsValidServiceID determine the validity of a serviceID
+func IsValidServiceID(serviceID ServiceID) (b bool) {
+	b = (serviceID == AuthServiceID || serviceID == MasterServiceID || serviceID == MetaServiceID || serviceID == DataServiceID)
+	return
+}
+
+// IsValidMsgReqType determine the validity of a message type
+func IsValidMsgReqType(serviceID ServiceID, msgType MsgType) (b bool) {
+	b = ServiceID2MsgReqMap[serviceID] == msgType
+	return
+}
 
 /*
 // HTTPReply uniform response structure
@@ -41,6 +179,7 @@ type HTTPReply struct {
 // RegisterMetaNodeResp defines the response to register a meta node.
 type RegisterMetaNodeResp struct {
 	ID uint64
+		messageJSON2 []byte
 }
 
 // ClusterInfo defines the cluster infomation.
