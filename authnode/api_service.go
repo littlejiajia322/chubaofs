@@ -93,7 +93,7 @@ func genTicket(serviceID proto.ServiceID, IP []byte, caps []byte) (ticket proto.
 	return
 }
 
-func genClientAuthResponse(clientID string, ts int64, serviceID proto.ServiceID, r *http.Request) (res string, err error) {
+func genClientAuthResponse(clientID string, ts int64, serviceID proto.ServiceID, r *http.Request) (message string, err error) {
 	var (
 		jticket []byte
 		jresp []byte
@@ -121,7 +121,7 @@ func genClientAuthResponse(clientID string, ts int64, serviceID proto.ServiceID,
 		return
 	}
 
-	if res, err = cryptoutil.EncodeMessage(jresp, authMasterKey), err != nil {
+	if message, err = cryptoutil.EncodeMessage(jresp, []byte(authMasterKey)); err != nil {
 		return
 	}
 
