@@ -1,13 +1,13 @@
 package authnode
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/base64"
 	"encoding/json"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+
+	//"strings"
 	"time"
 
 	//"github.com/chubaofs/chubaofs/util/errors"
@@ -56,57 +56,63 @@ func (m *Server) extractClientInfo(r *http.Request) (client string, message stri
 	return
 }
 
-func decodeMessage(message string, key []byte) (plaintext []byte, err error) {
-	var (
-		cipher []byte
-	)
-
-	if cipher, err = base64.StdEncoding.DecodeString(message); err != nil {
-		return
-	}
-
-	if plaintext, err = cryptoutil.AesDecryptCBC(key, cipher); err != nil {
-		return
-	}
-	return
-}
-
-func verifyMessage(plaintext []byte, key []byte) (err error) {
-	checksum2 := make([]byte, 16)
-	copy(checksum2, plaintext[8:24])
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
-	filltext := bytes.Repeat([]byte{byte(0)}, 16)
-	copy(plaintext[8:], filltext[:])
-	//fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
-	checksum3 := md5.Sum(plaintext)
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum3[:]))
-
-	// verify checksum
-	if bytes.Compare(checksum2, checksum3[:]) != 0 {
-		err = fmt.Errorf("MD5 not matched")
-	}
-	return
-}
-
-func extractJsonByteArray(plaintext []byte) (jarray []byte, err error) {
-	if len(plaintext) <=  8 + 16 {
+func extractJSONByteArray(plaintext []byte) (jarray []byte, err error) {
+	if len(plaintext) <= 8+16 {
 		err = fmt.Errorf("invalid json input")
 		return
 	}
-	jarray = make([]byte, len(plaintext) - 16 - 8)
-	copy(jarray, plaintext[8 + 16:])
+	jarray = make([]byte, len(plaintext)-16-8)
+	copy(jarray, plaintext[8+16:])
 	return
 }
 
-type MsgClientAuthReq struct {
-	ClientID string `json:"ClientID"`
-	Service  string `json:"Service"`
-	Ip       string `json:"Ip"`
-	Ts       int64  `json:"Ts"`
+var keymap = map[string]string{"client1": "11111111111111111111111111111111", "master": "22222222222222222222222222222222"}
+var authMasterKey = "33333333333333333333333333333333"
+
+func getIPAdress(r *http.Request) string {
+    var ipAddress string
+    for _, h := range []string{"X-Forwarded-For", "X-Real-Ip"} {
+        for _, ip := range strings.Split(r.Header.Get(h), ",") {
+            // header can contain spaces too, strip those out.
+            realIP := net.ParseIP(strings.Replace(ip, " ", "", -1))
+            ipAddress = string(realIP)
+        }
+    }
+    return ipAddress
 }
 
-var key_map = map[string]string{"client1": "11111111111111111111111111111111", "master": "22222222222222222222222222222222"}
+func genTicket(serviceID proto.ServiceID, IP []byte, caps []byte) (ticket proto.Ticket) {
+	currentTime := time.Now().Unix()
+	ticket.Version = ticketVersion
+	ticket.ServiceID = serviceID
+	ticket.SessionKey.Ctime = currentTime
+	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS([]byte(authMasterKey))
+	ticket.Exp = currentTime + ticketExpiration //TODO const
+	ticket.IP = IP
+	ticket.Caps = caps
+	return
+}
+
+func genClientAuthResponse(clientID string, serviceID proto.ServiceID, r *http.Request) (resp proto.MsgClientAuthReply, err error) {
+	var (
+		jticket []byte
+	)
+	resp.Type = proto.ServiceID2MsgRespMap[serviceID]
+	resp.ClientID = clientID
+	resp.ServiceID = serviceID
+	resp.IP = getIPAdress(r)
+	//ts + 1
+	ticket := genTicket(serviceID, []byte(resp.IP), []byte(`{"master":"yes"}`))
+	resp.SessionKey = ticket.SessionKey
+	if jticket, err = json.Marshal(ticket); err != nil {
+		return
+	}
+	key := []byte(keymap[proto.ServiceID2NameMap[serviceID]])
+	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, key); err != nil {
+		return
+	}
+	return
+}
 
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
@@ -116,7 +122,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		plaintext []byte
 		jarray    []byte
 		err       error
-		jobj      MsgClientAuthReq
+		jobj      proto.MsgClientAuthReq
 	)
 
 	if client, message, err = m.extractClientInfo(r); err != nil {
@@ -127,23 +133,18 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("clientID=%s message=%s\n", client, message)
 
 	// TODO: check db
-	if _, ok := key_map[client]; !ok {
+	if _, ok := keymap[client]; !ok {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Sprintf("clientID=%s not existing!", client)})
 		return
 	}
-	key := []byte(key_map[client])
+	key := []byte(keymap[client])
 
-	if plaintext, err = decodeMessage(message, key); err != nil {
+	if plaintext, err = cryptoutil.DecodeMessage(message, key); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMSGDecodeError, Msg: err.Error()})
 		return
 	}
 
-	if err = verifyMessage(plaintext, key); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMSGVerifyError, Msg: err.Error()})
-		return
-	}
-
-	if jarray, err = extractJsonByteArray(plaintext); err != nil {
+	if jarray, err = extractJSONByteArray(plaintext); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -154,14 +155,20 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(jobj.ClientID, jobj.Ip, jobj.Service)
+	fmt.Println(jobj.ClientID, jobj.IP, jobj.ServiceID)
 
-	if time.Now().Unix()-jobj.Ts >= 5 * 60 { // TODO: const
+	if time.Now().Unix()-jobj.Ts >= 5*60 { // TODO: const
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("req ts is timeout").Error()})
 		return
 	}
-	if strings.Compare(jobj.Service, "master") != 0 && strings.Compare(jobj.Service, "metanode") != 0 && strings.Compare(jobj.Service, "datanode") != 0 {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+
+	if !proto.IsValidServiceID(jobj.ServiceID) {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid service ID").Error()})
+		return
+	}
+
+	if !proto.IsValidMsgReqType(jobj.ServiceID, jobj.Type) {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid request type").Error()})
 		return
 	}
 
