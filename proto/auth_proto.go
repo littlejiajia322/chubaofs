@@ -142,7 +142,7 @@ type Ticket struct {
 	ServiceID  ServiceID `json:"service_id"`
 	SessionKey CryptoKey `json:"session_key"`
 	Exp        int64     `json:"exp"`
-	IP         []byte    `json:"ip"`
+	IP         string    `json:"ip"`
 	Caps       []byte    `json:"caps"`
 }
 

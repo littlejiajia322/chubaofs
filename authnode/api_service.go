@@ -58,7 +58,7 @@ func (m *Server) extractClientInfo(r *http.Request) (client string, message stri
 
 var authMasterKey = "33333333333333333333333333333333"
 
-func genTicket(serviceID proto.ServiceID, IP []byte, caps []byte) (ticket proto.Ticket) {
+func genTicket(serviceID proto.ServiceID, IP string, caps []byte) (ticket proto.Ticket) {
 	currentTime := time.Now().Unix()
 	ticket.Version = ticketVersion
 	ticket.ServiceID = serviceID
@@ -75,6 +75,7 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 		jticket []byte
 		jresp   []byte
 		resp    proto.MsgClientGetTicketAuthResp
+		userInfo UserInfo
 	)
 
 	resp.Type = proto.ServiceID2MsgRespMap[req.ServiceID]
@@ -82,7 +83,7 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 	resp.ServiceID = req.ServiceID
 	resp.IP = iputil.RealIP(r)
 	resp.Ts = req.Ts + 1
-	ticket := genTicket(resp.ServiceID, []byte(resp.IP), []byte(`{"master":"yes"}`))
+	ticket := genTicket(resp.ServiceID, resp.IP, []byte(`{"master":"yes"}`))
 	resp.SessionKey = ticket.SessionKey
 
 	if jticket, err = json.Marshal(ticket); err != nil {
@@ -90,9 +91,12 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 	}
 	// Use service key to encrypt ticket
 	// TODO key
-	key := []byte(keymap[proto.ServiceID2NameMap[resp.ServiceID]])
-	fmt.Printf("serviceID=%d serviceName=%s key=%d\n", resp.ServiceID, proto.ServiceID2NameMap[resp.ServiceID], len(key))
-	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, key); err != nil {
+	//key := []byte(keymap[proto.ServiceID2NameMap[resp.ServiceID]])
+	if userInfo, err = RetrieveUserInfo(proto.ServiceID2NameMap[resp.ServiceID]); err != nil {
+		return
+	}
+	fmt.Printf("serviceID=%d serviceName=%s key=%d\n", resp.ServiceID, proto.ServiceID2NameMap[resp.ServiceID], len(userInfo.Key))
+	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, []byte(userInfo.Key)); err != nil {
 		return
 	}
 
@@ -102,7 +106,10 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 
 	// Use client key to encrypt response message
 	// TODO key
-	if message, err = cryptoutil.EncodeMessage(jresp, []byte(keymap[resp.ClientID])); err != nil {
+	if userInfo, err = RetrieveUserInfo(resp.ClientID); err != nil {
+		return
+	}
+	if message, err = cryptoutil.EncodeMessage(jresp, []byte(userInfo.Key)); err != nil {
 		return
 	}
 
@@ -116,6 +123,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		plaintext    []byte
 		err          error
 		jobj         proto.MsgClientGetTicketAuthReq
+		userInfo	UserInfo
 	)
 
 	if client, message, err = m.extractClientInfo(r); err != nil {
@@ -126,13 +134,12 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("clientID=%s message=%s\n", client, message)
 
 	// TODO: check db
-	if _, ok := keymap[client]; !ok {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Sprintf("clientID=%s not existing!", client)})
+	if userInfo, err = RetrieveUserInfo(client); err != nil {
+		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	key := []byte(keymap[client])
 
-	if plaintext, err = cryptoutil.DecodeMessage(message, key); err != nil {
+	if plaintext, err = cryptoutil.DecodeMessage(message, []byte(userInfo.Key)); err != nil {
 		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeMSGDecodeError, Msg: err.Error()})
 		return
 	}

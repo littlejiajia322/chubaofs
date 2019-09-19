@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"bytes"
 
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
@@ -70,8 +71,12 @@ func main() {
 	if err = json.Unmarshal(ticket_array, &ticket); err != nil {
 		panic(err)
 	}
-
-	fmt.Printf("ticket %v", ticket)
+	
+	if bytes.Compare(msgResp.SessionKey.Key, ticket.SessionKey.Key) != 0 {
+		panic(fmt.Errorf("session keys are not equal"))
+	}
+	
+	
 
 	return
 }

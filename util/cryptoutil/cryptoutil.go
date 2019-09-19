@@ -53,7 +53,7 @@ func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 		return
 	}
 
-	ciphertext = make([]byte, aes.BlockSize+len(paddedText))
+	ciphertext = make([]byte, aes.BlockSize + len(paddedText))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
 		return
