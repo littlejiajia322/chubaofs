@@ -5,17 +5,17 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"time"
-	"strconv"
-	"crypto/md5"
-	"encoding/base64"
 	rand2 "math/rand"
-	"encoding/binary"
+	"strconv"
+	"time"
 )
 
 func pad(src []byte) []byte {
@@ -105,7 +105,7 @@ func AuthGenSessionKeyTS(key []byte) (sessionKey []byte) {
 	sessionKey = genSessionKey(key, data)
 	sha := hex.EncodeToString(sessionKey)
 
-	fmt.Println("session key = %s\nsize=%d\n" + sha, len(sessionKey))
+	fmt.Println("session key ", sha, len(sessionKey))
 	return
 }
 
@@ -114,25 +114,26 @@ func EncodeMessage(plaintext []byte, key []byte) (message string, err error) {
 	var cipher []byte
 
 	// 8 for random number; 16 for md5 hash
-	buffer := make([]byte, 8 + 16 + len(plaintext)) // TODO const
+	buffer := make([]byte, 8+16+len(plaintext)) // TODO const
+
 	// add random
 	random := rand2.Uint64()
 	binary.LittleEndian.PutUint64(buffer, random)
+
 	// add request body
-	copy(buffer[8 + 16:], plaintext) // TODO const
-	//fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
+	copy(buffer[8+16:], plaintext) // TODO const
+
 	// calculate and add md5
 	checksum := md5.Sum(buffer)
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum[:]))
 	copy(buffer[8:], checksum[:])
-	//fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
+
 	// encryption with aes CBC with keysize of 256-bit
 	if cipher, err = AesEncryptCBC(key, buffer); err != nil {
 		return
 	}
 	// base64 encoding
 	message = base64.StdEncoding.EncodeToString(cipher)
-	fmt.Printf("CBC: %s\n", message)
+	fmt.Printf("EncodeMessge CBC: %s\n", message)
 	return
 
 }
@@ -140,31 +141,36 @@ func EncodeMessage(plaintext []byte, key []byte) (message string, err error) {
 // DecodeMessage decode a message and verify its validity
 func DecodeMessage(message string, key []byte) (plaintext []byte, err error) {
 	var (
-		cipher []byte
+		cipher      []byte
+		decodedText []byte
 	)
 
 	if cipher, err = base64.StdEncoding.DecodeString(message); err != nil {
 		return
 	}
 
-	if plaintext, err = AesDecryptCBC(key, cipher); err != nil {
+	if decodedText, err = AesDecryptCBC(key, cipher); err != nil {
 		return
 	}
 
+	// TODO const
+	if len(decodedText) <= 8 + 16 {
+		err = fmt.Errorf("invalid json format with size less than 8 + 16")
+		return
+	}
 	checksum2 := make([]byte, 16)
-	copy(checksum2, plaintext[8:24])
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
+	copy(checksum2, decodedText[8:24])
 	filltext := bytes.Repeat([]byte{byte(0)}, 16)
-	copy(plaintext[8:], filltext[:])
-	//fmt.Printf("plaintext=%s %d\n", base64.StdEncoding.EncodeToString(plaintext), len(plaintext))
-	checksum3 := md5.Sum(plaintext)
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum2))
-	//fmt.Printf("checksum=%s\n", base64.StdEncoding.EncodeToString(checksum3[:]))
+	copy(decodedText[8:], filltext[:])
+	checksum3 := md5.Sum(decodedText)
 
 	// verify checksum
 	if bytes.Compare(checksum2, checksum3[:]) != 0 {
-		err = fmt.Errorf("MD5 not matched")
+		err = fmt.Errorf("Signature not match")
 	}
 
+	plaintext = decodedText[8+16:]
+
+	fmt.Printf("DecodeMessage CBC: %s\n", plaintext)
 	return
 }

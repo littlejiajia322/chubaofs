@@ -13,3 +13,5 @@ const (
 	nodeSetCapacity                     = "nodeSetCap"
 	*/
 )
+
+var keymap = map[string]string{"client1": "11111111111111111111111111111111", "MasterService": "22222222222222222222222222222222"}

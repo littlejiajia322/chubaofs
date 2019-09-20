@@ -19,5 +19,7 @@ const (
 	ticketVersion    = 1
 	clientID         = "ClientID"
 	encryptedMessage = "Message"
-	ticketExpiration = 24 * 60 * 60
+	ticketReqDuration = 10
+	ticketDuration = 24 * 60 * 60
+
 )

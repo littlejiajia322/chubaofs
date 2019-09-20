@@ -7,28 +7,27 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
+	//"github.com/chubaofs/chubaofs/authnode"
 )
-
 
 func main() {
 	var (
-		err          error
+		err         error
 		messageJSON []byte
-		message      string
+		message     string
+		msgResp     proto.MsgClientGetTicketAuthResp
+		ticket_array []byte
+		ticket proto.Ticket
 	)
 	clientID := "client1"
-<<<<<<< HEAD
 	serviceID := proto.MasterServiceID
-=======
-	serviceID := proto.MasterService
->>>>>>> f36b2d718c3762264feb77add437d8f65a036bf6
-	ip := "123456789"
 	ts := time.Now().Unix()
 	// construct request body
-	messageStruct := proto.MsgClientAuthReq{Type: proto.MsgMasterTicketReq, ClientID: clientID, ServiceID: serviceID, IP: ip, Ts: ts}
-	var messageStruct2 proto.MsgClientAuthReq
+	messageStruct := proto.MsgClientGetTicketAuthReq{Type: proto.MsgMasterTicketReq, ClientID: clientID, ServiceID: serviceID, Ts: ts}
+	var messageStruct2 proto.MsgClientGetTicketAuthReq
 	if messageJSON, err = json.Marshal(messageStruct); err != nil {
 		panic(err)
 	}
@@ -37,7 +36,7 @@ func main() {
 	if err = json.Unmarshal(messageJSON, &messageStruct2); err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s %s %d \n", messageStruct2.ClientID, messageStruct2.IP, messageStruct2.ServiceID)
+	fmt.Printf("%s %d \n", messageStruct2.ClientID, messageStruct2.ServiceID)
 
 	// encrption
 	message, err = cryptoutil.EncodeMessage(messageJSON, []byte("11111111111111111111111111111111"))
@@ -45,9 +44,6 @@ func main() {
 		panic(err)
 	}
 
-	if messageJSON, err = cryptoutil.DecodeMessage(message, []byte("11111111111111111111111111111111")); err != nil {
-		panic(err)
-	}
 	fmt.Printf(string(messageJSON))
 
 	// We can use POST form to get result, too.
@@ -61,8 +57,21 @@ func main() {
 	if err2 != nil {
 		panic(err2)
 	}
-	//fmt.Println("post:\n", keepLines(string(body), 3))
-	fmt.Printf("respose: %s", string(body))
+	fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthTicketReply(body, []byte("11111111111111111111111111111111")); err != nil {
+		panic(err)
+	}
+
+	if ticket_array, err = cryptoutil.DecodeMessage(msgResp.Ticket, []byte("22222222222222222222222222222222")); err != nil {
+		panic(err)
+	}
+
+	if err = json.Unmarshal(ticket_array, &ticket); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("ticket %v", ticket)
 
 	return
 }

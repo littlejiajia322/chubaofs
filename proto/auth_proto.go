@@ -14,6 +14,15 @@
 
 package proto
 
+import (
+	"encoding/json"
+	"fmt"
+
+	//"time"
+
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
+)
+
 // ServiceID defines the type of tickets
 type ServiceID uint32
 
@@ -79,6 +88,13 @@ const (
 	MsgDataTicketResp MsgType = 0x80000
 )
 
+// HTTPGetTicketAuthReply uniform response structure
+type HTTPGetTicketAuthReply struct {
+	Code int32       `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
 // ServiceID2MsgReqMap map serviceID to Auth msg request
 var ServiceID2MsgReqMap = map[ServiceID]MsgType{
 	AuthServiceID:   MsgAuthTicketReq,
@@ -136,21 +152,20 @@ type CryptoKey struct {
 	Key   []byte `json:"key"`
 }
 
-// MsgClientAuthReq defines the message from client to authnode
-type MsgClientAuthReq struct {
+// MsgClientGetTicketAuthReq defines the message from client to authnode
+type MsgClientGetTicketAuthReq struct {
 	Type      MsgType   `json:"type"`
 	ClientID  string    `json:"client_id"`
 	ServiceID ServiceID `json:"service_id"`
-	IP        string    `json:"ip"`
 	Ts        int64     `json:"ts"`
 }
 
-// MsgClientAuthResp defines the message from authnode to client
-type MsgClientAuthResp struct {
-	Type      MsgType   `json:"type"`
-	ClientID  string    `json:"client_id"`
-	ServiceID ServiceID `json:"service_id"`
-	IP        string    `json:"ip"`
+// MsgClientGetTicketAuthResp defines the message from authnode to client
+type MsgClientGetTicketAuthResp struct {
+	Type       MsgType   `json:"type"`
+	ClientID   string    `json:"client_id"`
+	ServiceID  ServiceID `json:"service_id"`
+	IP         string    `json:"ip"`
 	Ts         int64     `json:"ts"`
 	Ticket     string    `json:"ticket"`
 	SessionKey CryptoKey `json:"session_key"`
@@ -166,6 +181,36 @@ func IsValidServiceID(serviceID ServiceID) (b bool) {
 func IsValidMsgReqType(serviceID ServiceID, msgType MsgType) (b bool) {
 	b = ServiceID2MsgReqMap[serviceID] == msgType
 	return
+}
+
+// ParseAuthTicketReply parse and validate the auth ticket reply
+func ParseAuthTicketReply(body []byte, key []byte) (resp MsgClientGetTicketAuthResp, err error) {
+	var (
+		jobj      HTTPGetTicketAuthReply
+		plaintext []byte
+	)
+	if err = json.Unmarshal(body, &jobj); err != nil {
+		return
+	}
+
+	if jobj.Code != 0 {
+		err = fmt.Errorf(jobj.Msg)
+		return
+	}
+
+	data := fmt.Sprint(jobj.Data)
+	//fmt.Println(data)
+
+	if plaintext, err = cryptoutil.DecodeMessage(data, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+	fmt.Printf("resp=%v\n", resp)
+	return
+
 }
 
 /*
@@ -256,7 +301,7 @@ type File struct {
 	Name     string
 	Crc      uint32
 	Size     uint32
-	Modified int64
+	Modified int64resp        
 }
 
 // LoadMetaPartitionMetricRequest defines the request of loading the meta partition metrics.
