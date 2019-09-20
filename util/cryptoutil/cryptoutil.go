@@ -10,7 +10,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	rand2 "math/rand"
@@ -43,7 +42,7 @@ func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 
 	paddedText := pad(plaintext)
 
-	if len(paddedText)%aes.BlockSize != 0 {
+	if len(paddedText) % aes.BlockSize != 0 {
 		err = fmt.Errorf("paddedText [len=%d] is not a multiple of the block size", len(paddedText))
 		return
 	}
@@ -54,16 +53,13 @@ func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 	}
 
 	ciphertext = make([]byte, aes.BlockSize + len(paddedText))
-	iv := ciphertext[:aes.BlockSize]
+	iv := ciphertext[ : aes.BlockSize]
 	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
 		return
 	}
 
-	//fmt.Printf("CBC Key: %s\n", hex.EncodeToString(key))
-	//fmt.Printf("CBC IV: %s\n", hex.EncodeToString(iv))
-
 	cbc := cipher.NewCBCEncrypter(block, iv)
-	cbc.CryptBlocks(ciphertext[aes.BlockSize:], paddedText)
+	cbc.CryptBlocks(ciphertext[aes.BlockSize : ], paddedText)
 
 	return
 }
@@ -77,12 +73,12 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	}
 
 	if len(ciphertext) < aes.BlockSize {
-		err = fmt.Errorf("ciphertext [len=%d] too short", len(ciphertext))
+		err = fmt.Errorf("ciphertext [len=%d] too short; should greater than blocksize", len(ciphertext))
 		return
 	}
 
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
+	iv := ciphertext[ : aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize : ]
 
 	cbc := cipher.NewCBCDecrypter(block, iv)
 	cbc.CryptBlocks(ciphertext, ciphertext)
@@ -103,9 +99,8 @@ func genSessionKey(key []byte, data []byte) (sessionKey []byte) {
 func AuthGenSessionKeyTS(key []byte) (sessionKey []byte) {
 	data := []byte(strconv.FormatInt(int64(time.Now().Unix()), 10))
 	sessionKey = genSessionKey(key, data)
-	sha := hex.EncodeToString(sessionKey)
 
-	fmt.Println("session key ", sha, len(sessionKey))
+	//fmt.Println("session key ", hex.EncodeToString(sessionKey), len(sessionKey))
 	return
 }
 
@@ -114,18 +109,18 @@ func EncodeMessage(plaintext []byte, key []byte) (message string, err error) {
 	var cipher []byte
 
 	// 8 for random number; 16 for md5 hash
-	buffer := make([]byte, 8+16+len(plaintext)) // TODO const
+	buffer := make([]byte, RandomNumberSize + CheckSumSize + len(plaintext))
 
 	// add random
 	random := rand2.Uint64()
-	binary.LittleEndian.PutUint64(buffer, random)
+	binary.LittleEndian.PutUint64(buffer[RandomNumberOffset : ], random)
 
 	// add request body
-	copy(buffer[8+16:], plaintext) // TODO const
+	copy(buffer[MessageOffset : ], plaintext)
 
-	// calculate and add md5
+	// calculate and add checksum
 	checksum := md5.Sum(buffer)
-	copy(buffer[8:], checksum[:])
+	copy(buffer[CheckSumOffset : ], checksum[ : ])
 
 	// encryption with aes CBC with keysize of 256-bit
 	if cipher, err = AesEncryptCBC(key, buffer); err != nil {
@@ -153,23 +148,25 @@ func DecodeMessage(message string, key []byte) (plaintext []byte, err error) {
 		return
 	}
 
-	// TODO const
-	if len(decodedText) <= 8 + 16 {
-		err = fmt.Errorf("invalid json format with size less than 8 + 16")
+	if len(decodedText) <= MessageMetaDataSize {
+		err = fmt.Errorf("invalid json format with size [%d] less than message meta data size", len(decodedText))
 		return
 	}
-	checksum2 := make([]byte, 16)
-	copy(checksum2, decodedText[8:24])
-	filltext := bytes.Repeat([]byte{byte(0)}, 16)
-	copy(decodedText[8:], filltext[:])
-	checksum3 := md5.Sum(decodedText)
+	
+	msgChecksum := make([]byte, CheckSumSize)
+	copy(msgChecksum, decodedText[CheckSumOffset : CheckSumOffset + CheckSumSize])
+	
+	// calculate checksum
+	filltext := bytes.Repeat([]byte{byte(0)}, CheckSumSize)
+	copy(decodedText[CheckSumOffset : ], filltext[ : ])
+	newChecksum := md5.Sum(decodedText)
 
 	// verify checksum
-	if bytes.Compare(checksum2, checksum3[:]) != 0 {
-		err = fmt.Errorf("Signature not match")
+	if bytes.Compare(msgChecksum, newChecksum[:]) != 0 {
+		err = fmt.Errorf("checksum not match")
 	}
 
-	plaintext = decodedText[8+16:]
+	plaintext = decodedText[MessageOffset : ]
 
 	fmt.Printf("DecodeMessage CBC: %s\n", plaintext)
 	return
