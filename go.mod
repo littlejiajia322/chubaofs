@@ -5,6 +5,7 @@ go 1.12
 require (
 	9fans.net/go v0.0.2 // indirect
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
+	github.com/OpenPeeDeeP/depguard v1.0.1 // indirect
 	github.com/alecthomas/gometalinter v3.0.0+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20190910110746-680d30ca3117 // indirect
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
@@ -27,7 +28,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mdempsky/gocode v0.0.0-20190203001940-7fb65232883f // indirect
-	github.com/mgechev/revive v0.0.0-20190910172647-84deee41635a // indirect
+	github.com/mgechev/revive v0.0.0-20190917153825-40564c5052ae // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d // indirect
 	github.com/parnurzeal/gorequest v0.2.15
@@ -40,6 +41,7 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cobra v0.0.5 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.4.0 // indirect
 	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
 	github.com/tecbot/gorocksdb v0.0.0-20190519120508-025c3cf4ffb4
@@ -50,10 +52,10 @@ require (
 	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
-	golang.org/x/sys v0.0.0-20190913121621-c3b328c6e5a7 // indirect
+	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13 // indirect
 	golang.org/x/text v0.3.2 // indirect
-	golang.org/x/tools v0.0.0-20190913181337-0240832f5c3d // indirect
+	golang.org/x/tools v0.0.0-20190920130846-1081e67f6b77 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
-	mvdan.cc/unparam v0.0.0-20190720180237-d51796306d8f // indirect
+	mvdan.cc/unparam v0.0.0-20190917161559-b83a221c10a2 // indirect
 	sourcegraph.com/sqs/pbtypes v1.0.0 // indirect
 )

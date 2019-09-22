@@ -88,6 +88,12 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	return
 }
 
+// GenSessionKey generate a master key according to pair {key and data}
+func GenMasterKey(key []byte, data []byte) (masterKey [] byte) {
+	masterKey = genSessionKey(key, data)
+	return
+}
+
 func genSessionKey(key []byte, data []byte) (sessionKey []byte) {
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write([]byte(data))
@@ -101,6 +107,18 @@ func AuthGenSessionKeyTS(key []byte) (sessionKey []byte) {
 	sessionKey = genSessionKey(key, data)
 
 	//fmt.Println("session key ", hex.EncodeToString(sessionKey), len(sessionKey))
+	return
+}
+
+// Base64Encode encoding using base64
+func Base64Encode(text []byte) (encodedText string) {
+	encodedText = base64.StdEncoding.EncodeToString(text)
+	return
+}
+
+// Base64Decode Decoding using base64
+func Base64Decode(encodedText string) (text []byte, err error) {
+	text, err = base64.StdEncoding.DecodeString(encodedText)
 	return
 }
 

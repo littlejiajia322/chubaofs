@@ -1,20 +1,22 @@
 package authnode
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"strconv"
-
 
 	//"strings"
 	"time"
 
 	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
-	"github.com/chubaofs/chubaofs/util/log"
 	"github.com/chubaofs/chubaofs/util/iputil"
+	"github.com/chubaofs/chubaofs/util/keystore"
+	"github.com/chubaofs/chubaofs/util/log"
 
 	"fmt"
 )
@@ -23,11 +25,11 @@ func keyNotFound(name string) (err error) {
 	return errors.NewErrorf("parameter %v not found", name)
 }
 
-func sendErrReply(w http.ResponseWriter, r *http.Request, HTTPGetTicketAuthReply *proto.HTTPGetTicketAuthReply) {
-	log.LogInfof("URL[%v],remoteAddr[%v],response err[%v]", r.URL, r.RemoteAddr, HTTPGetTicketAuthReply)
-	reply, err := json.Marshal(HTTPGetTicketAuthReply)
+func sendErrReply(w http.ResponseWriter, r *http.Request, HTTPAuthReply *proto.HTTPAuthReply) {
+	log.LogInfof("URL[%v],remoteAddr[%v],response err[%v]", r.URL, r.RemoteAddr, HTTPAuthReply)
+	reply, err := json.Marshal(HTTPAuthReply)
 	if err != nil {
-		log.LogErrorf("fail to marshal http reply[%v]. URL[%v],remoteAddr[%v] err:[%v]", HTTPGetTicketAuthReply, r.URL, r.RemoteAddr, err)
+		log.LogErrorf("fail to marshal http reply[%v]. URL[%v],remoteAddr[%v] err:[%v]", HTTPAuthReply, r.URL, r.RemoteAddr, err)
 		http.Error(w, "fail to marshal http reply", http.StatusBadRequest)
 		return
 	}
@@ -39,50 +41,52 @@ func sendErrReply(w http.ResponseWriter, r *http.Request, HTTPGetTicketAuthReply
 	return
 }
 
-func (m *Server) extractClientInfo(r *http.Request) (client string, message string, err error) {
+func (m *Server) extractClientReqInfo(r *http.Request) (plaintext []byte, err error) {
+	var (
+		message string
+	)
 	if err = r.ParseForm(); err != nil {
 		return
 	}
 
-	if client = r.FormValue(clientID); client == "" {
-		err = keyNotFound(clientID)
+	if message = r.FormValue(ClientMessage); message == "" {
+		err = keyNotFound(ClientMessage)
 		return
 	}
 
-	if message = r.FormValue(encryptedMessage); message == "" {
-		err = keyNotFound(encryptedMessage)
+	if plaintext, err = cryptoutil.Base64Decode(message); err != nil {
 		return
 	}
+
 	return
 }
 
-var authMasterKey = "33333333333333333333333333333333"
-
-func genTicket(serviceID proto.ServiceID, IP string, caps []byte) (ticket proto.Ticket) {
+func genTicket(serviceID string, IP string, caps []byte) (ticket proto.Ticket) {
 	currentTime := time.Now().Unix()
-	ticket.Version = ticketVersion
+	ticket.Version = TicketVersion
 	ticket.ServiceID = serviceID
 	ticket.SessionKey.Ctime = currentTime
-	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS([]byte(authMasterKey))
-	ticket.Exp = currentTime + ticketDuration
+	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS([]byte(keystore.AuthMasterKey))
+	ticket.Exp = currentTime + TicketDuration
 	ticket.IP = IP
 	ticket.Caps = caps
 	return
 }
 
-func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *http.Request) (message string, err error) {
+func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, ts int64, r *http.Request) (message string, err error) {
 	var (
-		jticket []byte
-		jresp   []byte
-		resp    proto.MsgClientGetTicketAuthResp
-		userInfo UserInfo
+		jticket  []byte
+		jresp    []byte
+		resp     proto.MsgClientGetTicketAuthResp
+		userInfo keystore.UserInfo
 	)
 
 	resp.Type = proto.ServiceID2MsgRespMap[req.ServiceID]
 	resp.ClientID = req.ClientID
 	resp.ServiceID = req.ServiceID
 	resp.IP = iputil.RealIP(r)
-	resp.Ts = req.Ts + 1
+	// increase ts by one for client verify server
+	resp.Verifier = ts + 1
 	ticket := genTicket(resp.ServiceID, resp.IP, []byte(`{"master":"yes"}`))
 	resp.SessionKey = ticket.SessionKey
 
@@ -92,10 +96,10 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 	// Use service key to encrypt ticket
 	// TODO key
 	//key := []byte(keymap[proto.ServiceID2NameMap[resp.ServiceID]])
-	if userInfo, err = RetrieveUserInfo(proto.ServiceID2NameMap[resp.ServiceID]); err != nil {
+	if userInfo, err = keystore.RetrieveUserInfo(resp.ServiceID); err != nil {
 		return
 	}
-	fmt.Printf("serviceID=%d serviceName=%s key=%d\n", resp.ServiceID, proto.ServiceID2NameMap[resp.ServiceID], len(userInfo.Key))
+	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(userInfo.Key))
 	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, []byte(userInfo.Key)); err != nil {
 		return
 	}
@@ -106,7 +110,7 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 
 	// Use client key to encrypt response message
 	// TODO key
-	if userInfo, err = RetrieveUserInfo(resp.ClientID); err != nil {
+	if userInfo, err = keystore.RetrieveUserInfo(resp.ClientID); err != nil {
 		return
 	}
 	if message, err = cryptoutil.EncodeMessage(jresp, []byte(userInfo.Key)); err != nil {
@@ -116,91 +120,229 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, r *htt
 	return
 }
 
-func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
+func parseVerifier(verifier string, key string) (ts int64, err error) {
 	var (
-		client string
-		message      string
-		plaintext    []byte
-		err          error
-		jobj         proto.MsgClientGetTicketAuthReq
-		userInfo	UserInfo
+		plainttext []byte
+	)
+	if plainttext, err = cryptoutil.DecodeMessage(verifier, []byte(key)); err != nil {
+		return
+	}
+
+	ts = int64(binary.LittleEndian.Uint64(plainttext))
+
+	//fmt.Printf("clientID=%s serviceID=%d ts=%d", jobj.ClientID, jobj.ServiceID, ts)
+
+	if time.Now().Unix()-ts >= TicketReqDuration {
+		err = fmt.Errorf("ticket req is timeout") // TODO
+		return
+	}
+	return
+}
+
+func validateReqServiceIDMsgType(serviceID string, tp proto.MsgType) (err error) {
+	if !proto.IsValidServiceID(serviceID) {
+		err = fmt.Errorf("invalid service ID")
+		return
+	}
+
+	if !proto.IsValidMsgReqType(serviceID, tp) {
+		err = fmt.Errorf("invalid request id and type")
+		return
+	}
+	return
+}
+
+func genClientAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.MsgAuthCreateUserResp
 	)
 
-	if client, message, err = m.extractClientInfo(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	//resp.Type =
+	resp.ApiResp.ClientID = req.ApiReq.ClientID
+	resp.ApiResp.ServiceID = req.ApiReq.ServiceID
+	// increase ts by one for client verify server
+	resp.ApiResp.Verifier = ts + 1
+	resp.UserInfo = req.UserInfo
+
+	if jresp, err = json.Marshal(resp); err != nil {
 		return
 	}
 
-	fmt.Printf("clientID=%s message=%s\n", client, message)
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		return
+	}
+
+	return
+}
+
+func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.MsgClientGetTicketAuthReq
+		ts        int64
+		userInfo  keystore.UserInfo
+		message   string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
 
 	// TODO: check db
-	if userInfo, err = RetrieveUserInfo(client); err != nil {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	if userInfo, err = keystore.RetrieveUserInfo(jobj.ClientID); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if plaintext, err = cryptoutil.DecodeMessage(message, []byte(userInfo.Key)); err != nil {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeMSGDecodeError, Msg: err.Error()})
+	if ts, err = parseVerifier(jobj.Verifier, userInfo.Key); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if err = json.Unmarshal(plaintext, &jobj); err != nil {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
-
-	fmt.Println(jobj.ClientID, jobj.ServiceID)
-
-	if time.Now().Unix() - jobj.Ts >= ticketReqDuration {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("ticket req is timeout").Error()})
-		return
-	}
-
-	if !proto.IsValidServiceID(jobj.ServiceID) {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid service ID").Error()})
-		return
-	}
-
-	if !proto.IsValidMsgReqType(jobj.ServiceID, jobj.Type) {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid request type").Error()})
+	if err = validateReqServiceIDMsgType(jobj.ServiceID, jobj.Type); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	// TODO check whether jobj.ip == the IP from HTTP request
-	if message, err = genClientGetTicketAuthResponse(&jobj, r); err != nil {
-		sendErrReply(w, r, &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	if message, err = genClientGetTicketAuthResponse(&jobj, ts, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 	}
 
-	sendOkReply(w, r, newSuccessHTTPGetTicketAuthReply(message))
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
 	return
 }
 
-func newSuccessHTTPGetTicketAuthReply(data interface{}) *proto.HTTPGetTicketAuthReply {
-	return &proto.HTTPGetTicketAuthReply{Code: proto.ErrCodeSuccess, Msg: proto.ErrSuc.Error(), Data: data}
+func extractTicket(str string, keyStr string) (ticket proto.Ticket, err error) {
+	var (
+		key       []byte
+		plaintext []byte
+	)
+
+	if key, err = cryptoutil.Base64Decode(keyStr); err != nil {
+		return
+	}
+
+	if plaintext, err = cryptoutil.DecodeMessage(str, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &ticket); err != nil {
+		return
+	}
+
+	return
 }
 
-func sendOkReply(w http.ResponseWriter, r *http.Request, HTTPGetTicketAuthReply *proto.HTTPGetTicketAuthReply) (err error) {
-	/*switch HTTPGetTicketAuthReply.Data.(type) {
+func checkTicketCapacity(ticket *proto.Ticket, kind string, cap string) (b bool, err error) {
+	c := new(caps.Caps)
+	if err = c.Init(ticket.Caps); err != nil {
+		return
+	}
+	b = c.ContainCaps(kind, cap)
+	return
+}
+
+// TODO string->[]byte; error message; ticket new file
+func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.MsgAuthCreateUserReq
+		ts        int64
+		ticket    proto.Ticket
+		b         bool
+		message   string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if err = validateReqServiceIDMsgType(jobj.ApiReq.ServiceID, jobj.ApiReq.Type); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if ts, err = parseVerifier(jobj.ApiReq.Verifier, keystore.AuthMasterKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if ticket, err = extractTicket(jobj.ApiReq.Ticket, keystore.AuthMasterKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if b, err = checkTicketCapacity(&ticket, "API", "createUser"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if b == false {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "no permission to access api"})
+		return
+	}
+
+	if jobj.UserInfo, err = keystore.AddNewUser(jobj.UserInfo.UserName, &jobj.UserInfo); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if message, err = genClientAddUserResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+	
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+
+	return
+}
+
+func newSuccessHTTPAuthReply(data interface{}) *proto.HTTPAuthReply {
+	return &proto.HTTPAuthReply{Code: proto.ErrCodeSuccess, Msg: proto.ErrSuc.Error(), Data: data}
+}
+
+func sendOkReply(w http.ResponseWriter, r *http.Request, HTTPAuthReply *proto.HTTPAuthReply) (err error) {
+	/*switch HTTPAuthReply.Data.(type) {
 	case *DataPartition:
-		dp := HTTPGetTicketAuthReply.Data.(*DataPartition)Block
+		dp := HTTPAuthReply.Data.(*DataPartition)Block
 		dp.RLock()
 		defer dp.RUnlock()
 	case *MetaPartition:
-		mp := HTTPGetTicketAuthReply.Data.(*MetaPartition)
+		mp := HTTPAuthReply.Data.(*MetaPartition)
 		mp.RLock()
 		defer mp.RUnlock()
 	case *MetaNode:
-		mn := HTTPGetTicketAuthReply.Data.(*MetaNode)
+		mn := HTTPAuthReply.Data.(*MetaNode)
 		mn.RLock()
 		defer mn.RUnlock()
 	case *DataNode:
-		dn := HTTPGetTicketAuthReply.Data.(*DataNode)
+		dn := HTTPAuthReply.Data.(*DataNode)
 		dn.RLock()
 		defer dn.RUnlock()
 	}*/
-	reply, err := json.Marshal(HTTPGetTicketAuthReply)
+	reply, err := json.Marshal(HTTPAuthReply)
 	if err != nil {
-		log.LogErrorf("fail to marshal http reply[%v]. URL[%v],remoteAddr[%v] err:[%v]", HTTPGetTicketAuthReply, r.URL, r.RemoteAddr, err)
+		log.LogErrorf("fail to marshal http reply[%v]. URL[%v],remoteAddr[%v] err:[%v]", HTTPAuthReply, r.URL, r.RemoteAddr, err)
 		http.Error(w, "fail to marshal http reply", http.StatusBadRequest)
 		return
 	}

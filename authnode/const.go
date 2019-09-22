@@ -16,10 +16,8 @@ package authnode
 
 // Keys in the request
 const (
-	ticketVersion    = 1
-	clientID         = "ClientID"
-	encryptedMessage = "Message"
-	ticketReqDuration = 10
-	ticketDuration = 24 * 60 * 60
-
+	TicketVersion     = 1
+	ClientMessage     = "Message"
+	TicketReqDuration = 10
+	TicketDuration    = 24 * 60 * 60
 )

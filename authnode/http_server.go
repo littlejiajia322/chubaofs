@@ -12,7 +12,7 @@ func (m *Server) startHTTPService() {
 	fmt.Printf("start http\n")
 	go func() {
 		m.handleFunctions()
-		if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
+		if err := http.ListenAndServe(colonSplit + m.port, nil); err != nil {
 			log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 			panic(err)
 		}
@@ -66,5 +66,7 @@ func (m *Server) handleFunctions() {
 		http.Handle(proto.GetTopologyView, m.handlerWithInterceptor())
 	*/
 	http.HandleFunc(proto.ClientGetTicket, m.getTicket)
+	http.HandleFunc(proto.AdminCreateUser, m.createUser)
+	
 	return
 }
