@@ -2,36 +2,38 @@ package keystore
 
 import (
 	"fmt"
-	
+
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
 
+// UserInfo defines the user info structure in key store
 type UserInfo struct {
 	UserName string
-	Key      string
+	Key      []byte
 	Role     string
 	Caps     []byte
 }
 
 var keystore = map[string]UserInfo{
 	"client1": {
-		Key:  "11111111111111111111111111111111",
+		Key:  []byte("11111111111111111111111111111111"),
 		Role: "client",
-		Caps: []byte(`{"apis": ["mount"]`),
+		Caps: []byte(`{"API": ["mount"]`),
 	},
 	"MasterService": {
-		Key:  "22222222222222222222222222222222",
+		Key:  []byte("22222222222222222222222222222222"),
 		Role: "service",
 		Caps: []byte(`{}`),
 	},
 	"admin": {
-		Key:  "33333333333333333333333333333333",
+		Key:  []byte("33333333333333333333333333333333"),
 		Role: "admin",
-		Caps: []byte(`{"apis": ["*"]}`),
+		Caps: []byte(`{"API": ["createuser"]}`),
 	},
 }
 
-var AuthMasterKey = "44444444444444444444444444444444"
+// AuthMasterKey defines the Master key for Auth Service
+var AuthMasterKey = []byte("44444444444444444444444444444444")
 
 // RetrieveUserInfo return the key according to user ID from keystore
 func RetrieveUserInfo(name string) (userInfo UserInfo, err error) {
@@ -40,6 +42,26 @@ func RetrieveUserInfo(name string) (userInfo UserInfo, err error) {
 		return
 	}
 	userInfo = keystore[name]
+	return
+}
+
+// RetrieveUserMasterKey return the master key from keystore according to user ID
+func RetrieveUserMasterKey(name string) (key []byte, err error) {
+	if _, ok := keystore[name]; !ok {
+		err = fmt.Errorf("user name [%s] is not existed in system", name)
+		return
+	}
+	key = keystore[name].Key
+	return
+}
+
+// RetrieveUserCapability return the capbility from keystore according to user ID
+func RetrieveUserCapability(name string) (caps []byte, err error) {
+	if _, ok := keystore[name]; !ok {
+		err = fmt.Errorf("user name [%s] is not existed in system", name)
+		return
+	}
+	caps = keystore[name].Caps
 	return
 }
 
@@ -56,14 +78,7 @@ func AddNewUser(name string, userInfo *UserInfo) (res UserInfo, err error) {
 		return
 	}
 	res = *userInfo
-	res.Key = cryptoutil.Base64Encode(genClientMasterKey(userInfo.UserName))
+	res.Key = genClientMasterKey(userInfo.UserName)
 	keystore[name] = res
 	return
 }
-
-/*
-// SetuserKey return the key according to user ID
-func SetUserKey(id string, key string) {
-	keymap[id] = key
-	return
-}*/

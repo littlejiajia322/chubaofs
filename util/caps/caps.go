@@ -2,37 +2,36 @@ package caps
 
 import (
 	"encoding/json"
+	"fmt"
 
 	//"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
 
+// Caps defines the capability type
 type Caps struct {
-	resources map[string](map[string]bool)
+	API []string
 }
 
+// ContainCaps whether contain a capability with kind
 func (c *Caps) ContainCaps(kind string, cap string) (b bool) {
   b = false
-  if _, ok := c.resources[kind]; ok {
-    if _, ok := c.resources[kind]["*"]; ok {
-      b = true;
-    } else if _, ok := c.resources[kind][cap]; ok {
-      b = true;
-    }
+  if kind == "API" {
+		for _, s := range c.API {
+			if s == "*" || s == cap {
+				b = true;
+				return
+			}
+		}
   }
 	return
 }
 
 // Init init a Caps instance
 func (c *Caps) Init(b []byte) (err error) {
-	/*var (
-		jbytes []byte
-	)
-  
-	if jbytes, err = cryptoutil.Base64Decode(str); err != nil {
-		return
-	}*/
+	fmt.Printf("Init %s\n", string(b))
 	if err = json.Unmarshal(b, c); err != nil {
 		return
 	}
+	fmt.Printf("Init %v\n", c)
 	return
 }

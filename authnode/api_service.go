@@ -61,7 +61,7 @@ func (m *Server) extractClientReqInfo(r *http.Request) (plaintext []byte, err er
 	return
 }
 
-func genTicket(serviceID string, IP string, caps []byte) (ticket proto.Ticket) {
+func genTicket(serviceID string, IP string, caps []byte) (ticket cryptoutil.Ticket) {
 	currentTime := time.Now().Unix()
 	ticket.Version = TicketVersion
 	ticket.ServiceID = serviceID
@@ -75,10 +75,11 @@ func genTicket(serviceID string, IP string, caps []byte) (ticket proto.Ticket) {
 
 func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, ts int64, r *http.Request) (message string, err error) {
 	var (
-		jticket  []byte
-		jresp    []byte
-		resp     proto.MsgClientGetTicketAuthResp
-		userInfo keystore.UserInfo
+		jticket   []byte
+		jresp     []byte
+		resp      proto.MsgClientGetTicketAuthResp
+		masterKey []byte
+		caps      []byte
 	)
 
 	resp.Type = proto.ServiceID2MsgRespMap[req.ServiceID]
@@ -87,20 +88,27 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, ts int
 	resp.IP = iputil.RealIP(r)
 	// increase ts by one for client verify server
 	resp.Verifier = ts + 1
-	ticket := genTicket(resp.ServiceID, resp.IP, []byte(`{"master":"yes"}`))
+	if caps, err = keystore.RetrieveUserCapability(resp.ClientID); err != nil {
+		return
+	}
+	ticket := genTicket(resp.ServiceID, resp.IP, caps)
 	resp.SessionKey = ticket.SessionKey
 
 	if jticket, err = json.Marshal(ticket); err != nil {
 		return
 	}
 	// Use service key to encrypt ticket
-	// TODO key
-	//key := []byte(keymap[proto.ServiceID2NameMap[resp.ServiceID]])
-	if userInfo, err = keystore.RetrieveUserInfo(resp.ServiceID); err != nil {
-		return
+	if resp.ServiceID == proto.AuthServiceID {
+		masterKey = keystore.AuthMasterKey
+	} else {
+		if masterKey, err = keystore.RetrieveUserMasterKey(resp.ServiceID); err != nil {
+			return
+		}
 	}
-	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(userInfo.Key))
-	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, []byte(userInfo.Key)); err != nil {
+
+	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(masterKey))
+
+	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, masterKey); err != nil {
 		return
 	}
 
@@ -109,33 +117,33 @@ func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, ts int
 	}
 
 	// Use client key to encrypt response message
-	// TODO key
-	if userInfo, err = keystore.RetrieveUserInfo(resp.ClientID); err != nil {
+	if masterKey, err = keystore.RetrieveUserMasterKey(resp.ClientID); err != nil {
 		return
 	}
-	if message, err = cryptoutil.EncodeMessage(jresp, []byte(userInfo.Key)); err != nil {
+	if message, err = cryptoutil.EncodeMessage(jresp, masterKey); err != nil {
 		return
 	}
 
 	return
 }
 
-func parseVerifier(verifier string, key string) (ts int64, err error) {
+func parseVerifier(verifier string, key []byte) (ts int64, err error) {
 	var (
 		plainttext []byte
 	)
-	if plainttext, err = cryptoutil.DecodeMessage(verifier, []byte(key)); err != nil {
+
+	fmt.Printf("verifier=%s\n", verifier)
+	if plainttext, err = cryptoutil.DecodeMessage(verifier, key); err != nil {
 		return
 	}
 
 	ts = int64(binary.LittleEndian.Uint64(plainttext))
 
-	//fmt.Printf("clientID=%s serviceID=%d ts=%d", jobj.ClientID, jobj.ServiceID, ts)
-
 	if time.Now().Unix()-ts >= TicketReqDuration {
 		err = fmt.Errorf("ticket req is timeout") // TODO
 		return
 	}
+
 	return
 }
 
@@ -223,15 +231,10 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func extractTicket(str string, keyStr string) (ticket proto.Ticket, err error) {
+func extractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error) {
 	var (
-		key       []byte
 		plaintext []byte
 	)
-
-	if key, err = cryptoutil.Base64Decode(keyStr); err != nil {
-		return
-	}
 
 	if plaintext, err = cryptoutil.DecodeMessage(str, key); err != nil {
 		return
@@ -244,7 +247,7 @@ func extractTicket(str string, keyStr string) (ticket proto.Ticket, err error) {
 	return
 }
 
-func checkTicketCapacity(ticket *proto.Ticket, kind string, cap string) (b bool, err error) {
+func checkTicketCapacity(ticket *cryptoutil.Ticket, kind string, cap string) (b bool, err error) {
 	c := new(caps.Caps)
 	if err = c.Init(ticket.Caps); err != nil {
 		return
@@ -260,9 +263,11 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		err       error
 		jobj      proto.MsgAuthCreateUserReq
 		ts        int64
-		ticket    proto.Ticket
+		ticket    cryptoutil.Ticket
 		b         bool
+		//userInfo  keystore.UserInfo
 		message   string
+		masterKey []byte
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
@@ -277,25 +282,39 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println("Successfully Unmarshal")
+
+	// TODO: check ServiceID == AuthMasterService
 	if err = validateReqServiceIDMsgType(jobj.ApiReq.ServiceID, jobj.ApiReq.Type); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if ts, err = parseVerifier(jobj.ApiReq.Verifier, keystore.AuthMasterKey); err != nil {
+	fmt.Println("Successfully validateReqServiceIDMsgType")
+
+	masterKey = keystore.AuthMasterKey
+
+	if ticket, err = extractTicket(jobj.ApiReq.Ticket, masterKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if ticket, err = extractTicket(jobj.ApiReq.Ticket, keystore.AuthMasterKey); err != nil {
+	fmt.Println("Successfully extractTicket")
+
+	// should use session key
+	if ts, err = parseVerifier(jobj.ApiReq.Verifier, ticket.SessionKey.Key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if b, err = checkTicketCapacity(&ticket, "API", "createUser"); err != nil {
+	fmt.Println("Successfully parseVerifier")
+
+	if b, err = checkTicketCapacity(&ticket, "API", "createuser"); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
+
+	fmt.Println("Successfully checkTicketCapacity")
 
 	if b == false {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "no permission to access api"})
@@ -311,7 +330,7 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	
+
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
 
 	return

@@ -18,10 +18,8 @@ import (
 	//"github.com/chubaofs/chubaofs/authnode"
 )
 
-func genVerifier(key string) (v string) {
-	var (
-		err error
-	)
+func genVerifier(key []byte) (v string, err error) {
+
 	ts := time.Now().Unix()
 	// encode ts for client
 	tsbuf := make([]byte, unsafe.Sizeof(ts))
@@ -29,6 +27,7 @@ func genVerifier(key string) (v string) {
 	if v, err = cryptoutil.EncodeMessage(tsbuf, []byte(key)); err != nil {
 		panic(err)
 	}
+	fmt.Printf("genVerifier %s\n", v)
 	return
 }
 
@@ -40,16 +39,20 @@ func testAuthGetTicket() {
 		msgResp      proto.MsgClientGetTicketAuthResp
 		ticket_array []byte
 		ticket       proto.Ticket
+		masterKey []byte
 	)
 	clientID := "admin"
-	serviceID := proto.MasterServiceID
-	
+	serviceID := proto.AuthServiceID
+
 	// construct request body
-	messageStruct := proto.MsgClientGetTicketAuthReq{Type: proto.MsgMasterTicketReq, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
+	messageStruct := proto.MsgClientGetTicketAuthReq{Type: proto.MsgAuthTicketReq, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
+	if masterKey, err = keystore.RetrieveUserMasterKey("admin"); err != nil {
+		panic(err)
+	}
+	if messageStruct.Verifier, err = genVerifier(masterKey); err != nil {
+		panic(err)
+	}
 
-
-	messageStruct.Verifier = genVerifier("33333333333333333333333333333333")
-	//var messageStruct2 proto.MsgClientGetTicketAuthReq
 	if messageJSON, err = json.Marshal(messageStruct); err != nil {
 		panic(err)
 	}
@@ -70,11 +73,15 @@ func testAuthGetTicket() {
 	}
 	fmt.Printf("\nrespose: %s\n", body)
 
-	if msgResp, err = proto.ParseAuthTicketReply(body, []byte("33333333333333333333333333333333")); err != nil {
+	if masterKey, err = keystore.RetrieveUserMasterKey("admin"); err != nil {
 		panic(err)
 	}
 
-	if ticket_array, err = cryptoutil.DecodeMessage(msgResp.Ticket, []byte("22222222222222222222222222222222")); err != nil {
+	if msgResp, err = proto.ParseAuthTicketReply(body, masterKey); err != nil {
+		panic(err)
+	}
+
+	if ticket_array, err = cryptoutil.DecodeMessage(msgResp.Ticket, keystore.AuthMasterKey); err != nil {
 		panic(err)
 	}
 
@@ -85,34 +92,38 @@ func testAuthGetTicket() {
 	if bytes.Compare(msgResp.SessionKey.Key, ticket.SessionKey.Key) != 0 {
 		panic(fmt.Errorf("session keys are not equal"))
 	}
-	
-	testAddUser(msgResp.Ticket)
+
+	testAddUser(msgResp.SessionKey.Key, msgResp.Ticket)
 }
 
-func testAddUser(ticket string) {
+func testAddUser(sessionKey []byte, ticket string) {
 	var (
+		//masterKey []byte
 		messageJSON []byte
 		err error
 	)
 	req := proto.MsgAuthCreateUserReq{}
 	req.ApiReq.Type = proto.MsgAuthAPIAccessReq
-	req.ApiReq.ClientID = "12345"
+	req.ApiReq.ClientID = "admin"
 	req.ApiReq.ServiceID = proto.AuthServiceID
-	req.ApiReq.Verifier = genVerifier("33333333333333333333333333333333")
+
+	if req.ApiReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
 	req.ApiReq.Ticket = ticket
 
-	req.UserInfo = keystore.UserInfo{UserName:"zeng", Key:"12345", Role:"Client", Caps:[]byte("")}
-	
-	
+	req.UserInfo = keystore.UserInfo{UserName:"zeng", Key:[]byte("12345"), Role:"Client", Caps:[]byte("")}
+
+
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
 	}
 	fmt.Printf(string(messageJSON) + "\n")
-	
+
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
 	// We can use POST form to get result, too.
-	resp, err := http.PostForm("http://localhost:8081/client/getticket",
+	resp, err := http.PostForm("http://localhost:8081/admin/createuser",
 		url.Values{"Message": {message}})
 	if err != nil {
 		panic(err)
@@ -124,13 +135,13 @@ func testAddUser(ticket string) {
 	}
 	fmt.Printf("\nrespose: %s\n", body)
 
-	
+
 }
 
 func main() {
 
 	testAuthGetTicket()
-	
+
 
 	return
 }

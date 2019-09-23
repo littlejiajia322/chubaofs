@@ -106,7 +106,7 @@ type HTTPAuthReply struct {
 	Data interface{} `json:"data"`
 }
 
-// ServiceID2MsgReqMap map serviceID to Auth msg request
+// MsgReq2ServiceIDMap map serviceID to Auth msg request
 var MsgReq2ServiceIDMap = map[MsgType]string{
 	MsgAuthTicketReq:      AuthServiceID,
 	MsgMasterTicketReq:    MasterServiceID,
@@ -122,31 +122,6 @@ var ServiceID2MsgRespMap = map[string]MsgType{
 	MasterServiceID: MsgMasterTicketResp,
 	MetaServiceID:   MsgMetaTicketResp,
 	DataServiceID:   MsgDataTicketResp,
-}
-
-/*
-* MITM thread:
-*      (1) talking to the right party (nonce, key encryption)
-*      (2) replay attack (IP, timestamp constrains)
-*
-* Other thread: Client capability changes (ticket timestamp)
- */
-
-// Ticket is a temperary struct to store the permission/caps for a client to
-// access principle
-type Ticket struct {
-	Version    uint8     `json:"version"`
-	ServiceID  string    `json:"service_id"`
-	SessionKey CryptoKey `json:"session_key"`
-	Exp        int64     `json:"exp"`
-	IP         string    `json:"ip"`
-	Caps       []byte    `json:"caps"`
-}
-
-// CryptoKey store the session key
-type CryptoKey struct {
-	Ctime int64  `json:"c_time"`
-	Key   []byte `json:"key"`
 }
 
 // MsgClientGetTicketAuthReq defines the message from client to authnode
@@ -167,7 +142,7 @@ type MsgClientGetTicketAuthResp struct {
 	IP         string    `json:"ip"`
 	Verifier   int64     `json:"verifier"`
 	Ticket     string    `json:"ticket"`
-	SessionKey CryptoKey `json:"session_key"`
+	SessionKey cryptoutil.CryptoKey `json:"session_key"`
 }
 
 // MsgAPIAccessReq defines the request for access restful api
