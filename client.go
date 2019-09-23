@@ -31,24 +31,23 @@ func genVerifier(key []byte) (v string, err error) {
 	return
 }
 
-func testAuthGetTicket() {
+func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string) (ticketStr string, key []byte) {
 	var (
 		err          error
 		messageJSON  []byte
 		message      string
-		msgResp      proto.MsgClientGetTicketAuthResp
+		msgResp      proto.MsgAuthGetTicketResp
 		ticket_array []byte
-		ticket       proto.Ticket
-		masterKey []byte
+		ticket       cryptoutil.Ticket
+		masterKey    []byte
 	)
-	clientID := "admin"
-	serviceID := proto.AuthServiceID
 
 	// construct request body
-	messageStruct := proto.MsgClientGetTicketAuthReq{Type: proto.MsgAuthTicketReq, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
-	if masterKey, err = keystore.RetrieveUserMasterKey("admin"); err != nil {
+	messageStruct := proto.MsgAuthGetTicketReq{Type: msgType, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
+	if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
 		panic(err)
 	}
+
 	if messageStruct.Verifier, err = genVerifier(masterKey); err != nil {
 		panic(err)
 	}
@@ -56,6 +55,7 @@ func testAuthGetTicket() {
 	if messageJSON, err = json.Marshal(messageStruct); err != nil {
 		panic(err)
 	}
+
 	fmt.Printf(string(messageJSON) + "\n")
 
 	message = base64.StdEncoding.EncodeToString(messageJSON)
@@ -71,13 +71,13 @@ func testAuthGetTicket() {
 	if err2 != nil {
 		panic(err2)
 	}
-	fmt.Printf("\nrespose: %s\n", body)
+	//fmt.Printf("\nrespose: %s\n", body)
 
-	if masterKey, err = keystore.RetrieveUserMasterKey("admin"); err != nil {
+	if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
 		panic(err)
 	}
 
-	if msgResp, err = proto.ParseAuthTicketReply(body, masterKey); err != nil {
+	if msgResp, err = proto.ParseAuthGetTicketResp(body, masterKey); err != nil {
 		panic(err)
 	}
 
@@ -93,15 +93,27 @@ func testAuthGetTicket() {
 		panic(fmt.Errorf("session keys are not equal"))
 	}
 
-	testAddUser(msgResp.SessionKey.Key, msgResp.Ticket)
+	ticketStr = msgResp.Ticket
+	key = msgResp.SessionKey.Key
+
+	return
 }
 
-func testAddUser(sessionKey []byte, ticket string) {
+func testAuthGetTicket() {
+	getTicketFromAuth(proto.MsgAuthTicketReq, "admin", proto.AuthServiceID)
+}
+
+func testAuthAddUser() {
 	var (
-		//masterKey []byte
 		messageJSON []byte
-		err error
+		err         error
+		msgResp     proto.MsgAuthCreateUserResp
+		//masterKey   []byte
 	)
+
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
 	req := proto.MsgAuthCreateUserReq{}
 	req.ApiReq.Type = proto.MsgAuthAPIAccessReq
 	req.ApiReq.ClientID = "admin"
@@ -112,8 +124,7 @@ func testAddUser(sessionKey []byte, ticket string) {
 	}
 	req.ApiReq.Ticket = ticket
 
-	req.UserInfo = keystore.UserInfo{UserName:"zeng", Key:[]byte("12345"), Role:"Client", Caps:[]byte("")}
-
+	req.UserInfo = keystore.UserInfo{UserName: "zeng6", Key: []byte("12345"), Role: "Client", Caps: []byte(`{"API":["mount"]}`)}
 
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
@@ -135,13 +146,23 @@ func testAddUser(sessionKey []byte, ticket string) {
 	}
 	fmt.Printf("\nrespose: %s\n", body)
 
+	/*if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
+		panic(err)
+	}*/
 
+	if msgResp, err = proto.ParseAuthCreateUserResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	msgResp.UserInfo.Dump()
+
+	return
 }
 
 func main() {
 
 	testAuthGetTicket()
-
+	testAuthAddUser()
 
 	return
 }

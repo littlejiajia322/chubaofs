@@ -3,7 +3,6 @@ package caps
 import (
 	"encoding/json"
 	"fmt"
-
 	//"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
 
@@ -14,15 +13,15 @@ type Caps struct {
 
 // ContainCaps whether contain a capability with kind
 func (c *Caps) ContainCaps(kind string, cap string) (b bool) {
-  b = false
-  if kind == "API" {
+	b = false
+	if kind == "API" {
 		for _, s := range c.API {
 			if s == "*" || s == cap {
-				b = true;
+				b = true
 				return
 			}
 		}
-  }
+	}
 	return
 }
 
@@ -33,5 +32,13 @@ func (c *Caps) Init(b []byte) (err error) {
 		return
 	}
 	fmt.Printf("Init %v\n", c)
+	return
+}
+
+// DumpCaps dump the content of Caps
+func (c *Caps) DumpCaps() {
+	for _, s := range c.API {
+		fmt.Printf("API:%s\n", s)
+	}
 	return
 }

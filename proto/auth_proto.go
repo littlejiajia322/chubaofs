@@ -127,7 +127,7 @@ var ServiceID2MsgRespMap = map[string]MsgType{
 // MsgClientGetTicketAuthReq defines the message from client to authnode
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
-type MsgClientGetTicketAuthReq struct {
+type MsgAuthGetTicketReq struct {
 	Type      MsgType `json:"type"`
 	ClientID  string  `json:"client_id"`
 	ServiceID string  `json:"service_id"`
@@ -135,13 +135,13 @@ type MsgClientGetTicketAuthReq struct {
 }
 
 // MsgClientGetTicketAuthResp defines the message from authnode to client
-type MsgClientGetTicketAuthResp struct {
-	Type       MsgType   `json:"type"`
-	ClientID   string    `json:"client_id"`
-	ServiceID  string    `json:"service_id"`
-	IP         string    `json:"ip"`
-	Verifier   int64     `json:"verifier"`
-	Ticket     string    `json:"ticket"`
+type MsgAuthGetTicketResp struct {
+	Type       MsgType              `json:"type"`
+	ClientID   string               `json:"client_id"`
+	ServiceID  string               `json:"service_id"`
+	IP         string               `json:"ip"`
+	Verifier   int64                `json:"verifier"`
+	Ticket     string               `json:"ticket"`
 	SessionKey cryptoutil.CryptoKey `json:"session_key"`
 }
 
@@ -202,11 +202,9 @@ func IsValidMsgReqType(serviceID string, msgType MsgType) (b bool) {
 	return
 }
 
-// ParseAuthTicketReply parse and validate the auth ticket reply
-func ParseAuthTicketReply(body []byte, key []byte) (resp MsgClientGetTicketAuthResp, err error) {
+func getPlaintextFromResp(body []byte, key []byte) (plaintext []byte, err error) {
 	var (
-		jobj      HTTPAuthReply
-		plaintext []byte
+		jobj HTTPAuthReply
 	)
 	if err = json.Unmarshal(body, &jobj); err != nil {
 		return
@@ -224,10 +222,39 @@ func ParseAuthTicketReply(body []byte, key []byte) (resp MsgClientGetTicketAuthR
 		return
 	}
 
+	return
+}
+
+// ParseAuthGetTicketResp parse and validate the auth tget icket resp
+func ParseAuthGetTicketResp(body []byte, key []byte) (resp MsgAuthGetTicketResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
 	if err = json.Unmarshal(plaintext, &resp); err != nil {
 		return
 	}
-	fmt.Printf("resp=%v\n", resp)
-	return
 
+	return
+}
+
+// ParseAuthCreateUserResp parse and validate the auth create user resp
+func ParseAuthCreateUserResp(body []byte, key []byte) (resp MsgAuthCreateUserResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
 }

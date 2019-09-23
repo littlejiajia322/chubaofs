@@ -73,11 +73,11 @@ func genTicket(serviceID string, IP string, caps []byte) (ticket cryptoutil.Tick
 	return
 }
 
-func genClientGetTicketAuthResponse(req *proto.MsgClientGetTicketAuthReq, ts int64, r *http.Request) (message string, err error) {
+func genClientGetTicketAuthResponse(req *proto.MsgAuthGetTicketReq, ts int64, r *http.Request) (message string, err error) {
 	var (
 		jticket   []byte
 		jresp     []byte
-		resp      proto.MsgClientGetTicketAuthResp
+		resp      proto.MsgAuthGetTicketResp
 		masterKey []byte
 		caps      []byte
 	)
@@ -188,7 +188,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
 		err       error
-		jobj      proto.MsgClientGetTicketAuthReq
+		jobj      proto.MsgAuthGetTicketReq
 		ts        int64
 		userInfo  keystore.UserInfo
 		message   string

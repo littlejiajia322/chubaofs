@@ -1,8 +1,10 @@
 package keystore
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
 
@@ -12,6 +14,22 @@ type UserInfo struct {
 	Key      []byte
 	Role     string
 	Caps     []byte
+}
+
+func (u *UserInfo) Dump() {
+	var (
+		caps caps.Caps
+	)
+
+	if err := json.Unmarshal(u.Caps, &caps); err != nil {
+		panic(err)
+	}
+
+	println("UserName:\t", u.UserName)
+	println("Key:\t", cryptoutil.Base64Encode(u.Key))
+	println("Role:\t", u.Role)
+	print("Caps:\t")
+	caps.DumpCaps()
 }
 
 var keystore = map[string]UserInfo{
