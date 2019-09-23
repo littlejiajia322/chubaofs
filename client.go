@@ -124,7 +124,7 @@ func testAuthAddUser() {
 	}
 	req.ApiReq.Ticket = ticket
 
-	req.UserInfo = keystore.UserInfo{UserName: "zeng6", Key: []byte("12345"), Role: "Client", Caps: []byte(`{"API":["mount"]}`)}
+	req.UserInfo = keystore.UserInfo{UserName: "zeng6", Key: []byte("12345"), Role: "client", Caps: []byte(`{"API":["mount"]}`)}
 
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
@@ -145,10 +145,6 @@ func testAuthAddUser() {
 		panic(err2)
 	}
 	fmt.Printf("\nrespose: %s\n", body)
-
-	/*if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
-		panic(err)
-	}*/
 
 	if msgResp, err = proto.ParseAuthCreateUserResp(body, sessionKey); err != nil {
 		panic(err)

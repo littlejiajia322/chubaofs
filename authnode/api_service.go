@@ -147,16 +147,38 @@ func parseVerifier(verifier string, key []byte) (ts int64, err error) {
 	return
 }
 
-func validateReqServiceIDMsgType(serviceID string, tp proto.MsgType) (err error) {
-	if !proto.IsValidServiceID(serviceID) {
-		err = fmt.Errorf("invalid service ID")
+func validateGetTicketReqFormat(req *proto.MsgAuthGetTicketReq) (err error) {
+	if err = proto.IsValidClientID(req.ClientID); err != nil {
 		return
 	}
 
-	if !proto.IsValidMsgReqType(serviceID, tp) {
-		err = fmt.Errorf("invalid request id and type")
+	if err = proto.IsValidServiceID(req.ServiceID); err != nil {
 		return
 	}
+
+	if err = proto.IsValidMsgReqType(req.ServiceID, req.Type); err != nil {
+		return
+	}
+	return
+}
+
+func validateCreateUserReqFormat(req *proto.MsgAuthCreateUserReq) (err error) {
+	if err = proto.IsValidClientID(req.ApiReq.ClientID); err != nil {
+		return
+	}
+
+	if err = proto.IsValidServiceID(req.ApiReq.ServiceID); err != nil {
+		return
+	}
+
+	if err = proto.IsValidMsgReqType(req.ApiReq.ServiceID, req.ApiReq.Type); err != nil {
+		return
+	}
+
+	if err = req.UserInfo.IsValidFormat(); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -166,7 +188,7 @@ func genClientAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []b
 		resp  proto.MsgAuthCreateUserResp
 	)
 
-	//resp.Type =
+	resp.ApiResp.Type = proto.MsgAuthAPIAccessResp
 	resp.ApiResp.ClientID = req.ApiReq.ClientID
 	resp.ApiResp.ServiceID = req.ApiReq.ServiceID
 	// increase ts by one for client verify server
@@ -217,7 +239,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = validateReqServiceIDMsgType(jobj.ServiceID, jobj.Type); err != nil {
+	if err = validateGetTicketReqFormat(&jobj); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -284,8 +306,8 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Successfully Unmarshal")
 
-	// TODO: check ServiceID == AuthMasterService
-	if err = validateReqServiceIDMsgType(jobj.ApiReq.ServiceID, jobj.ApiReq.Type); err != nil {
+	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
+	if err = validateCreateUserReqFormat(&jobj); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}

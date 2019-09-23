@@ -17,6 +17,7 @@ package proto
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/keystore"
@@ -180,25 +181,41 @@ type MsgAuthCreateUserResp struct {
 
 // MsgAuthAddCapsReq defines the message for adding caps for a user in authnode
 type MsgAuthAddCapsReq struct {
-	AApiReq MsgAPIAccessReq `json:"apiReq"`
-	Caps    []byte          `json:"caps"`
+	ApiReq MsgAPIAccessReq `json:"apiReq"`
+	Caps   []byte          `json:"caps"`
 }
 
 // MsgAuthAddCapsReq defines the message for adding caps for an user in authnode
 type MsgAuthDeleteCapsReq struct {
-	AApiReq MsgAPIAccessReq `json:"apiReq"`
-	Caps    []byte          `json:"caps"`
+	ApiReq MsgAPIAccessReq `json:"apiReq"`
+	Caps   []byte          `json:"caps"`
 }
 
 // IsValidServiceID determine the validity of a serviceID
-func IsValidServiceID(serviceID string) (b bool) {
-	b = (serviceID == AuthServiceID || serviceID == MasterServiceID || serviceID == MetaServiceID || serviceID == DataServiceID)
+func IsValidServiceID(serviceID string) (err error) {
+	if serviceID != AuthServiceID && serviceID != MasterServiceID && serviceID != MetaServiceID && serviceID != DataServiceID {
+		err = fmt.Errorf("invalid service ID [%s]", serviceID)
+		return
+	}
 	return
 }
 
 // IsValidMsgReqType determine the validity of a message type
-func IsValidMsgReqType(serviceID string, msgType MsgType) (b bool) {
-	b = MsgReq2ServiceIDMap[msgType] == serviceID
+func IsValidMsgReqType(serviceID string, msgType MsgType) (err error) {
+	if MsgReq2ServiceIDMap[msgType] != serviceID {
+		err = fmt.Errorf("invalid request type [%x] and serviceID[%s]", msgType, serviceID)
+		return
+	}
+	return
+}
+
+// IsValidClientID determine the validity of a clientID
+func IsValidClientID(id string) (err error) {
+	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
+	if !re.MatchString(id) {
+		err = fmt.Errorf("clientID invalid format [%s]", id)
+		return
+	}
 	return
 }
 

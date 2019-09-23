@@ -3,10 +3,16 @@ package keystore
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
+
+var roleSet = map[string]bool{
+	"client":  true,
+	"service": true,
+}
 
 // UserInfo defines the user info structure in key store
 type UserInfo struct {
@@ -30,6 +36,27 @@ func (u *UserInfo) Dump() {
 	println("Role:\t", u.Role)
 	print("Caps:\t")
 	caps.DumpCaps()
+}
+
+// IsValidFormat is a valid of UserInfo
+func (u *UserInfo) IsValidFormat() (err error) {
+	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
+	if !re.MatchString(u.UserName) {
+		err = fmt.Errorf("UserName invalid format %s", u.UserName)
+		return
+	}
+
+	if _, ok := roleSet[u.Role]; !ok {
+		err = fmt.Errorf("Role invalid [%s]", u.Role)
+		return
+	}
+
+	cap := new(caps.Caps)
+	if err = cap.Init(u.Caps); err != nil {
+		return
+	}
+
+	return
 }
 
 var keystore = map[string]UserInfo{
