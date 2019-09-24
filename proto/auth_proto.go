@@ -39,6 +39,7 @@ const (
 
 	// Admin APIs
 	AdminCreateUser = "/admin/createuser"
+	AdminAddCaps    = "/admin/addcaps"
 
 	//raft node APIs
 
@@ -125,6 +126,16 @@ var ServiceID2MsgRespMap = map[string]MsgType{
 	DataServiceID:   MsgDataTicketResp,
 }
 
+// ServiceID2MsgRespMap map serviceID to Auth msg response
+var AuthReq2RespMap = map[MsgType]MsgType{
+	MsgAuthTicketReq:      MsgAuthTicketResp,
+	MsgMasterTicketReq:    MsgMasterTicketResp,
+	MsgMetaTicketReq:      MsgMetaTicketResp,
+	MsgDataTicketReq:      MsgDataTicketResp,
+	MsgAuthAPIAccessReq:   MsgAuthAPIAccessResp,
+	MsgMasterAPIAccessReq: MsgMasterAPIAccessResp,
+}
+
 // MsgClientGetTicketAuthReq defines the message from client to authnode
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
@@ -179,10 +190,23 @@ type MsgAuthCreateUserResp struct {
 	UserInfo keystore.UserInfo `json:"user_info"`
 }
 
+// MsgAuthDeleteUserReq defines the request for deleting an authnode user
+type MsgAuthDeleteUserReq struct {
+	ApiReq   MsgAPIAccessReq `json:"api_req"`
+	ClientID string          `json:"id"`
+}
+
 // MsgAuthAddCapsReq defines the message for adding caps for a user in authnode
 type MsgAuthAddCapsReq struct {
 	ApiReq MsgAPIAccessReq `json:"apiReq"`
+	ID     string          `json:"id"`
 	Caps   []byte          `json:"caps"`
+}
+
+// MsgAuthAddCapsResp defines the message for adding caps for a user in authnode
+type MsgAuthAddCapsResp struct {
+	ApiResp MsgAPIAccessResp `json:"apiReq"`
+	Caps    []byte           `json:"caps"`
 }
 
 // MsgAuthAddCapsReq defines the message for adding caps for an user in authnode

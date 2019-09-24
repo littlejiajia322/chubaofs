@@ -162,38 +162,43 @@ func validateGetTicketReqFormat(req *proto.MsgAuthGetTicketReq) (err error) {
 	return
 }
 
-func validateCreateUserReqFormat(req *proto.MsgAuthCreateUserReq) (err error) {
-	if err = proto.IsValidClientID(req.ApiReq.ClientID); err != nil {
+func genAPIAccessResp(req *proto.MsgAPIAccessReq, ts int64, key []byte) (resp proto.MsgAPIAccessResp) {
+	resp.Type = proto.AuthReq2RespMap[req.Type]
+	resp.ClientID = req.ClientID
+	resp.ServiceID = req.ServiceID
+	// increase ts by one for client verify server
+	resp.Verifier = ts + 1
+	return
+}
+
+func genAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.MsgAuthCreateUserResp
+	)
+
+	resp.ApiResp = genAPIAccessResp(&req.ApiReq, ts, key)
+	resp.UserInfo = req.UserInfo
+
+	if jresp, err = json.Marshal(resp); err != nil {
 		return
 	}
 
-	if err = proto.IsValidServiceID(req.ApiReq.ServiceID); err != nil {
-		return
-	}
-
-	if err = proto.IsValidMsgReqType(req.ApiReq.ServiceID, req.ApiReq.Type); err != nil {
-		return
-	}
-
-	if err = req.UserInfo.IsValidFormat(); err != nil {
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
 		return
 	}
 
 	return
 }
 
-func genClientAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+func genAddCapsResponse(req *proto.MsgAuthAddCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
 	var (
 		jresp []byte
-		resp  proto.MsgAuthCreateUserResp
+		resp  proto.MsgAuthAddCapsResp
 	)
 
-	resp.ApiResp.Type = proto.MsgAuthAPIAccessResp
-	resp.ApiResp.ClientID = req.ApiReq.ClientID
-	resp.ApiResp.ServiceID = req.ApiReq.ServiceID
-	// increase ts by one for client verify server
-	resp.ApiResp.Verifier = ts + 1
-	resp.UserInfo = req.UserInfo
+	resp.ApiResp = genAPIAccessResp(&req.ApiReq, ts, key)
+	resp.Caps = req.Caps
 
 	if jresp, err = json.Marshal(resp); err != nil {
 		return
@@ -269,12 +274,49 @@ func extractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error)
 	return
 }
 
-func checkTicketCapacity(ticket *cryptoutil.Ticket, kind string, cap string) (b bool, err error) {
+func checkTicketCapacity(ticket *cryptoutil.Ticket, kind string, cap string) (err error) {
 	c := new(caps.Caps)
 	if err = c.Init(ticket.Caps); err != nil {
 		return
 	}
-	b = c.ContainCaps(kind, cap)
+	if b := c.ContainCaps(kind, cap); !b {
+		err = fmt.Errorf("no permission to access api")
+		return
+	}
+	return
+}
+
+func verifyAPIAccessReqCommon(req *proto.MsgAPIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
+	var (
+		masterKey []byte
+	)
+
+	if err = proto.IsValidClientID(req.ClientID); err != nil {
+		return
+	}
+
+	if err = proto.IsValidServiceID(req.ServiceID); err != nil {
+		return
+	}
+
+	if err = proto.IsValidMsgReqType(req.ServiceID, req.Type); err != nil {
+		return
+	}
+
+	masterKey = keystore.AuthMasterKey
+
+	if ticket, err = extractTicket(req.Ticket, masterKey); err != nil {
+		return
+	}
+
+	if ts, err = parseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
+		return
+	}
+
+	if err = checkTicketCapacity(&ticket, tp, resource); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -286,10 +328,59 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		jobj      proto.MsgAuthCreateUserReq
 		ts        int64
 		ticket    cryptoutil.Ticket
-		b         bool
 		//userInfo  keystore.UserInfo
+		message string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println("Successfully Unmarshal")
+
+	if err = jobj.UserInfo.IsValidFormat(); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.ApiReq, "API", "createuser"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	if jobj.UserInfo, err = keystore.AddNewUser(jobj.UserInfo.ID, &jobj.UserInfo); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if message, err = genAddUserResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+
+	return
+}
+
+// addCaps
+func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.MsgAuthAddCapsReq
+		ts        int64
+		ticket    cryptoutil.Ticket
+		newCaps   []byte
 		message   string
-		masterKey []byte
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
@@ -307,55 +398,23 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Successfully Unmarshal")
 
 	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
-	if err = validateCreateUserReqFormat(&jobj); err != nil {
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.ApiReq, "API", "addcaps"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	if newCaps, err = keystore.AddCaps(jobj.ID, jobj.Caps); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	fmt.Println("Successfully validateReqServiceIDMsgType")
+	jobj.Caps = newCaps
 
-	masterKey = keystore.AuthMasterKey
-
-	if ticket, err = extractTicket(jobj.ApiReq.Ticket, masterKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
-
-	fmt.Println("Successfully extractTicket")
-
-	// should use session key
-	if ts, err = parseVerifier(jobj.ApiReq.Verifier, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
-
-	fmt.Println("Successfully parseVerifier")
-
-	if b, err = checkTicketCapacity(&ticket, "API", "createuser"); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
-
-	fmt.Println("Successfully checkTicketCapacity")
-
-	if b == false {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "no permission to access api"})
-		return
-	}
-
-	if jobj.UserInfo, err = keystore.AddNewUser(jobj.UserInfo.UserName, &jobj.UserInfo); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
-
-	if message, err = genClientAddUserResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+	if message, err = genAddCapsResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
-
-	return
 }
 
 func newSuccessHTTPAuthReply(data interface{}) *proto.HTTPAuthReply {

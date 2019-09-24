@@ -31,6 +31,7 @@ func (c *Caps) Init(b []byte) (err error) {
 	if err = json.Unmarshal(b, c); err != nil {
 		return
 	}
+	c.cleanDup()
 	fmt.Printf("Init %v\n", c)
 	return
 }
@@ -39,6 +40,28 @@ func (c *Caps) Init(b []byte) (err error) {
 func (c *Caps) DumpCaps() {
 	for _, s := range c.API {
 		fmt.Printf("API:%s\n", s)
+	}
+	return
+}
+
+// Union union caps
+func (c *Caps) Union(caps *Caps) {
+	c.API = append(c.API, caps.API...)
+	c.cleanDup()
+}
+
+func (c *Caps) cleanDup() {
+	API := make([]string, 0)
+	m := make(map[string]bool)
+	for _, item := range c.API {
+		if item == "*" {
+			c.API = []string{"*"}
+			return
+		}
+		if _, ok := m[item]; !ok {
+			API = append(API, item)
+			m[item] = true
+		}
 	}
 	return
 }
