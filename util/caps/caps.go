@@ -63,5 +63,6 @@ func (c *Caps) cleanDup() {
 			m[item] = true
 		}
 	}
+	c.API = API
 	return
 }

@@ -279,6 +279,7 @@ func checkTicketCapacity(ticket *cryptoutil.Ticket, kind string, cap string) (er
 	if err = c.Init(ticket.Caps); err != nil {
 		return
 	}
+	fmt.Printf("+++++%s %s %s\n", string(ticket.Caps), kind, cap)
 	if b := c.ContainCaps(kind, cap); !b {
 		err = fmt.Errorf("no permission to access api")
 		return

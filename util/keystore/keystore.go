@@ -78,7 +78,7 @@ var Keystore = keystore{
 		"admin": {
 			Key:  []byte("33333333333333333333333333333333"),
 			Role: "admin",
-			Caps: []byte(`{"API": ["createuser"]}`),
+			Caps: []byte(`{"API": ["*"]}`),
 		},
 	},
 }

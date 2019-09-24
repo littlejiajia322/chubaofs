@@ -103,7 +103,7 @@ func testAuthGetTicket() {
 	getTicketFromAuth(proto.MsgAuthTicketReq, "admin", proto.AuthServiceID)
 }
 
-func testAuthAddUser() {
+func testAuthAddUser(uid string, role string, caps []byte) {
 	var (
 		messageJSON []byte
 		err         error
@@ -124,7 +124,7 @@ func testAuthAddUser() {
 	}
 	req.ApiReq.Ticket = ticket
 
-	req.UserInfo = keystore.UserInfo{ID: "zeng", Key: []byte("12345"), Role: "client", Caps: []byte(`{"API":["mount"]}`)}
+	req.UserInfo = keystore.UserInfo{ID: uid, Key: []byte(""), Role: role, Caps: caps}
 
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
@@ -155,10 +155,69 @@ func testAuthAddUser() {
 	return
 }
 
+func testAuthAddCaps(uid string, caps []byte) {
+	var (
+		err         error
+		messageJSON []byte
+		msgResp     proto.MsgAuthAddCapsResp
+	)
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
+	req := proto.MsgAuthAddCapsReq{}
+	req.ApiReq.Type = proto.MsgAuthAPIAccessReq
+	req.ApiReq.ClientID = "admin"
+	req.ApiReq.ServiceID = proto.AuthServiceID
+
+	if req.ApiReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
+
+	req.ApiReq.Ticket = ticket
+
+	req.ID = uid
+	req.Caps = caps
+
+	if messageJSON, err = json.Marshal(req); err != nil {
+		panic(err)
+	}
+	fmt.Printf(string(messageJSON) + "\n")
+
+	message := base64.StdEncoding.EncodeToString(messageJSON)
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/admin/addcaps",
+		url.Values{"Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthAddCapsResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("new caps: %s\n", string(msgResp.Caps))
+
+}
+
 func main() {
 
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 	testAuthGetTicket()
-	testAuthAddUser()
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthAddUser("zeng", "client", []byte(`{"API":["mount"]}`))
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthAddCaps("zeng", []byte(`{"API":["open"]}`))
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthAddCaps("zeng", []byte(`{"API":["open"]}`))
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthAddCaps("zeng", []byte(`{"API":["*"]}`))
 
 	return
 }

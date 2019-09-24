@@ -299,3 +299,20 @@ func ParseAuthCreateUserResp(body []byte, key []byte) (resp MsgAuthCreateUserRes
 
 	return
 }
+
+// ParseAuthAddCapsResp parse and validate the auth add caps resp
+func ParseAuthAddCapsResp(body []byte, key []byte) (resp MsgAuthAddCapsResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
