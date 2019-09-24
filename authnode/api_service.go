@@ -321,7 +321,7 @@ func verifyAPIAccessReqCommon(req *proto.MsgAPIAccessReq, tp string, resource st
 	return
 }
 
-// TODO string->[]byte; error message; ticket new file
+// TODO string->[]byte; error message
 func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
@@ -416,6 +416,9 @@ func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+}
+
+func (m *Server) showID(w http.ResponseWriter, r *http.Request) {
 }
 
 func newSuccessHTTPAuthReply(data interface{}) *proto.HTTPAuthReply {

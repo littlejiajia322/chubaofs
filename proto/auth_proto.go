@@ -40,6 +40,7 @@ const (
 	// Admin APIs
 	AdminCreateUser = "/admin/createuser"
 	AdminAddCaps    = "/admin/addcaps"
+	AdminShowID     = "/admin/showid"
 
 	//raft node APIs
 
