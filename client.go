@@ -33,17 +33,17 @@ func genVerifier(key []byte) (v string, err error) {
 
 func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string) (ticketStr string, key []byte) {
 	var (
-		err          error
-		messageJSON  []byte
-		message      string
-		msgResp      proto.MsgAuthGetTicketResp
-		ticket_array []byte
-		ticket       cryptoutil.Ticket
-		masterKey    []byte
+		err         error
+		messageJSON []byte
+		message     string
+		msgResp     proto.AuthGetTicketResp
+		ticketArray []byte
+		ticket      cryptoutil.Ticket
+		masterKey   []byte
 	)
 
 	// construct request body
-	messageStruct := proto.MsgAuthGetTicketReq{Type: msgType, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
+	messageStruct := proto.AuthGetTicketReq{Type: msgType, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
 	if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
 		panic(err)
 	}
@@ -81,11 +81,11 @@ func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string)
 		panic(err)
 	}
 
-	if ticket_array, err = cryptoutil.DecodeMessage(msgResp.Ticket, keystore.AuthMasterKey); err != nil {
+	if ticketArray, err = cryptoutil.DecodeMessage(msgResp.Ticket, keystore.AuthMasterKey); err != nil {
 		panic(err)
 	}
 
-	if err = json.Unmarshal(ticket_array, &ticket); err != nil {
+	if err = json.Unmarshal(ticketArray, &ticket); err != nil {
 		panic(err)
 	}
 
@@ -107,22 +107,22 @@ func testAuthAddUser(uid string, role string, caps []byte) {
 	var (
 		messageJSON []byte
 		err         error
-		msgResp     proto.MsgAuthCreateUserResp
+		msgResp     proto.AuthCreateUserResp
 		//masterKey   []byte
 	)
 
 	clientID := "admin"
 	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
 
-	req := proto.MsgAuthCreateUserReq{}
-	req.ApiReq.Type = proto.MsgAuthAPIAccessReq
-	req.ApiReq.ClientID = "admin"
-	req.ApiReq.ServiceID = proto.AuthServiceID
+	req := proto.AuthCreateUserReq{}
+	req.APIReq.Type = proto.MsgAuthCreateUserReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
 
-	if req.ApiReq.Verifier, err = genVerifier(sessionKey); err != nil {
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
 		panic(err)
 	}
-	req.ApiReq.Ticket = ticket
+	req.APIReq.Ticket = ticket
 
 	req.UserInfo = keystore.UserInfo{ID: uid, Key: []byte(""), Role: role, Caps: caps}
 
@@ -159,21 +159,21 @@ func testAuthAddCaps(uid string, caps []byte) {
 	var (
 		err         error
 		messageJSON []byte
-		msgResp     proto.MsgAuthAddCapsResp
+		msgResp     proto.AuthAddCapsResp
 	)
 	clientID := "admin"
 	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
 
-	req := proto.MsgAuthAddCapsReq{}
-	req.ApiReq.Type = proto.MsgAuthAPIAccessReq
-	req.ApiReq.ClientID = "admin"
-	req.ApiReq.ServiceID = proto.AuthServiceID
+	req := proto.AuthAddCapsReq{}
+	req.APIReq.Type = proto.MsgAuthAddCapsReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
 
-	if req.ApiReq.Verifier, err = genVerifier(sessionKey); err != nil {
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
 		panic(err)
 	}
 
-	req.ApiReq.Ticket = ticket
+	req.APIReq.Ticket = ticket
 
 	req.ID = uid
 	req.Caps = caps

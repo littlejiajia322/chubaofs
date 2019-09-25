@@ -65,35 +65,56 @@ const (
 )
 
 const (
+	// MsgAuthBase define the starting value for auth message
+	MsgAuthBase MsgType = 0x100000
+
 	// MsgAuthTicketReq request type for an auth ticket
-	MsgAuthTicketReq MsgType = 0x10000
+	MsgAuthTicketReq MsgType = MsgAuthBase + 0x10000
 
 	// MsgAuthTicketResp respose type for an auth ticket
-	MsgAuthTicketResp MsgType = 0x10001
+	MsgAuthTicketResp MsgType = MsgAuthBase + 0x10001
 
 	// MsgMasterTicketReq request type for a master ticket
-	MsgMasterTicketReq MsgType = 0x20000
+	MsgMasterTicketReq MsgType = MsgAuthBase + 0x20000
 
 	// MsgMasterTicketResp response type for a master ticket
-	MsgMasterTicketResp MsgType = 0x20001
+	MsgMasterTicketResp MsgType = MsgAuthBase + 0x20001
 
 	// MsgMetaTicketReq request type for a metanode ticket
-	MsgMetaTicketReq MsgType = 0x30000
+	MsgMetaTicketReq MsgType = MsgAuthBase + 0x30000
 
 	// MsgMetaTicketResp response type for a metanode ticket
-	MsgMetaTicketResp MsgType = 0x30001
+	MsgMetaTicketResp MsgType = MsgAuthBase + 0x30001
 
 	// MsgDataTicketReq request type for a datanode ticket
-	MsgDataTicketReq MsgType = 0x40000
+	MsgDataTicketReq MsgType = MsgAuthBase + 0x40000
 
 	// MsgDataTicketResp response type for a datanode ticket
-	MsgDataTicketResp MsgType = 0x40001
+	MsgDataTicketResp MsgType = MsgAuthBase + 0x40001
 
-	// MsgAuthAPIAccessReq request type for authnode api access
-	MsgAuthAPIAccessReq MsgType = 0x50000
+	// MsgAuthCreateUserReq request type for authnode add user
+	MsgAuthCreateUserReq MsgType = MsgAuthBase + 0x51000
 
-	// MsgAuthAPIAccessResp response type for authnode api access
-	MsgAuthAPIAccessResp MsgType = 0x50001
+	// MsgAuthCreateUserResp response type for authnode add user
+	MsgAuthCreateUserResp MsgType = MsgAuthBase + 0x51001
+
+	// MsgAuthDeleteUserReq request type for authnode delete user
+	MsgAuthDeleteUserReq MsgType = MsgAuthBase + 0x52000
+
+	// MsgAuthDeleteUserResp response type for authnode delete user
+	MsgAuthDeleteUserResp MsgType = MsgAuthBase + 0x52001
+
+	// MsgAuthGetUserReq request type for authnode get user info
+	MsgAuthGetUserReq MsgType = MsgAuthBase + 0x53000
+
+	// MsgAuthGetUserResp response type for authnode get user info
+	MsgAuthGetUserResp MsgType = MsgAuthBase + 0x53001
+
+	// MsgAuthAddCapsReq request type for authnode add caps
+	MsgAuthAddCapsReq MsgType = MsgAuthBase + 0x54000
+
+	// MsgAuthAddCapsResp response type for authnode add caps
+	MsgAuthAddCapsResp MsgType = MsgAuthBase + 0x54001
 
 	// MsgMasterAPIAccessReq request type for master api access
 	MsgMasterAPIAccessReq MsgType = 0x60000
@@ -109,16 +130,6 @@ type HTTPAuthReply struct {
 	Data interface{} `json:"data"`
 }
 
-// MsgReq2ServiceIDMap map serviceID to Auth msg request
-var MsgReq2ServiceIDMap = map[MsgType]string{
-	MsgAuthTicketReq:      AuthServiceID,
-	MsgMasterTicketReq:    MasterServiceID,
-	MsgMetaTicketReq:      MetaServiceID,
-	MsgDataTicketReq:      DataServiceID,
-	MsgAuthAPIAccessReq:   AuthServiceID,
-	MsgMasterAPIAccessReq: MasterServiceID,
-}
-
 // ServiceID2MsgRespMap map serviceID to Auth msg response
 var ServiceID2MsgRespMap = map[string]MsgType{
 	AuthServiceID:   MsgAuthTicketResp,
@@ -127,28 +138,18 @@ var ServiceID2MsgRespMap = map[string]MsgType{
 	DataServiceID:   MsgDataTicketResp,
 }
 
-// ServiceID2MsgRespMap map serviceID to Auth msg response
-var AuthReq2RespMap = map[MsgType]MsgType{
-	MsgAuthTicketReq:      MsgAuthTicketResp,
-	MsgMasterTicketReq:    MsgMasterTicketResp,
-	MsgMetaTicketReq:      MsgMetaTicketResp,
-	MsgDataTicketReq:      MsgDataTicketResp,
-	MsgAuthAPIAccessReq:   MsgAuthAPIAccessResp,
-	MsgMasterAPIAccessReq: MsgMasterAPIAccessResp,
-}
-
-// MsgClientGetTicketAuthReq defines the message from client to authnode
+// AuthGetTicketReq defines the message from client to authnode
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
-type MsgAuthGetTicketReq struct {
+type AuthGetTicketReq struct {
 	Type      MsgType `json:"type"`
 	ClientID  string  `json:"client_id"`
 	ServiceID string  `json:"service_id"`
 	Verifier  string  `json:"verifier"`
 }
 
-// MsgClientGetTicketAuthResp defines the message from authnode to client
-type MsgAuthGetTicketResp struct {
+// AuthGetTicketResp defines the message from authnode to client
+type AuthGetTicketResp struct {
 	Type       MsgType              `json:"type"`
 	ClientID   string               `json:"client_id"`
 	ServiceID  string               `json:"service_id"`
@@ -158,10 +159,10 @@ type MsgAuthGetTicketResp struct {
 	SessionKey cryptoutil.CryptoKey `json:"session_key"`
 }
 
-// MsgAPIAccessReq defines the request for access restful api
+// APIAccessReq defines the request for access restful api
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
-type MsgAPIAccessReq struct {
+type APIAccessReq struct {
 	Type      MsgType `json:"type"`
 	ClientID  string  `json:"client_id"`
 	ServiceID string  `json:"service_id"`
@@ -169,51 +170,51 @@ type MsgAPIAccessReq struct {
 	Ticket    string  `json:"ticket"`
 }
 
-// MsgAPIAccessResp defines the respose for access restful api
+// APIAccessResp defines the respose for access restful api
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
-type MsgAPIAccessResp struct {
+type APIAccessResp struct {
 	Type      MsgType `json:"type"`
 	ClientID  string  `json:"client_id"`
 	ServiceID string  `json:"service_id"`
 	Verifier  int64   `json:"verifier"`
 }
 
-// AuthMsgCreateUserReq defines the request for creating an authnode user
-type MsgAuthCreateUserReq struct {
-	ApiReq   MsgAPIAccessReq   `json:"api_req"`
+// AuthCreateUserReq defines the request for creating an authnode user
+type AuthCreateUserReq struct {
+	APIReq   APIAccessReq      `json:"api_req"`
 	UserInfo keystore.UserInfo `json:"user_info"`
 }
 
-// MsgAuthCreateUserResp defines the respose for creating an user in authnode
-type MsgAuthCreateUserResp struct {
-	ApiResp  MsgAPIAccessResp  `json:"api_resp"`
+// AuthCreateUserResp defines the respose for creating an user in authnode
+type AuthCreateUserResp struct {
+	APIResp  APIAccessResp     `json:"api_resp"`
 	UserInfo keystore.UserInfo `json:"user_info"`
 }
 
-// MsgAuthDeleteUserReq defines the request for deleting an authnode user
-type MsgAuthDeleteUserReq struct {
-	ApiReq   MsgAPIAccessReq `json:"api_req"`
-	ClientID string          `json:"id"`
+// AuthDeleteUserReq defines the request for deleting an authnode user
+type AuthDeleteUserReq struct {
+	APIReq   APIAccessReq `json:"api_req"`
+	ClientID string       `json:"id"`
 }
 
-// MsgAuthAddCapsReq defines the message for adding caps for a user in authnode
-type MsgAuthAddCapsReq struct {
-	ApiReq MsgAPIAccessReq `json:"apiReq"`
-	ID     string          `json:"id"`
-	Caps   []byte          `json:"caps"`
+// AuthAddCapsReq defines the message for adding caps for a user in authnode
+type AuthAddCapsReq struct {
+	APIReq APIAccessReq `json:"apiReq"`
+	ID     string       `json:"id"`
+	Caps   []byte       `json:"caps"`
 }
 
-// MsgAuthAddCapsResp defines the message for adding caps for a user in authnode
-type MsgAuthAddCapsResp struct {
-	ApiResp MsgAPIAccessResp `json:"apiReq"`
-	Caps    []byte           `json:"caps"`
+// AuthAddCapsResp defines the message for adding caps for a user in authnode
+type AuthAddCapsResp struct {
+	APIResp APIAccessResp `json:"apiReq"`
+	Caps    []byte        `json:"caps"`
 }
 
-// MsgAuthAddCapsReq defines the message for adding caps for an user in authnode
-type MsgAuthDeleteCapsReq struct {
-	ApiReq MsgAPIAccessReq `json:"apiReq"`
-	Caps   []byte          `json:"caps"`
+// AuthDeleteCapsReq defines the message for adding caps for an user in authnode
+type AuthDeleteCapsReq struct {
+	APIReq APIAccessReq `json:"apiReq"`
+	Caps   []byte       `json:"caps"`
 }
 
 // IsValidServiceID determine the validity of a serviceID
@@ -227,7 +228,14 @@ func IsValidServiceID(serviceID string) (err error) {
 
 // IsValidMsgReqType determine the validity of a message type
 func IsValidMsgReqType(serviceID string, msgType MsgType) (err error) {
-	if MsgReq2ServiceIDMap[msgType] != serviceID {
+	b := false
+	switch serviceID {
+	case "AuthService":
+		if msgType|MsgAuthBase != 0 {
+			b = true
+		}
+	}
+	if !b {
 		err = fmt.Errorf("invalid request type [%x] and serviceID[%s]", msgType, serviceID)
 		return
 	}
@@ -268,7 +276,7 @@ func getPlaintextFromResp(body []byte, key []byte) (plaintext []byte, err error)
 }
 
 // ParseAuthGetTicketResp parse and validate the auth tget icket resp
-func ParseAuthGetTicketResp(body []byte, key []byte) (resp MsgAuthGetTicketResp, err error) {
+func ParseAuthGetTicketResp(body []byte, key []byte) (resp AuthGetTicketResp, err error) {
 	var (
 		plaintext []byte
 	)
@@ -285,7 +293,7 @@ func ParseAuthGetTicketResp(body []byte, key []byte) (resp MsgAuthGetTicketResp,
 }
 
 // ParseAuthCreateUserResp parse and validate the auth create user resp
-func ParseAuthCreateUserResp(body []byte, key []byte) (resp MsgAuthCreateUserResp, err error) {
+func ParseAuthCreateUserResp(body []byte, key []byte) (resp AuthCreateUserResp, err error) {
 	var (
 		plaintext []byte
 	)
@@ -302,7 +310,7 @@ func ParseAuthCreateUserResp(body []byte, key []byte) (resp MsgAuthCreateUserRes
 }
 
 // ParseAuthAddCapsResp parse and validate the auth add caps resp
-func ParseAuthAddCapsResp(body []byte, key []byte) (resp MsgAuthAddCapsResp, err error) {
+func ParseAuthAddCapsResp(body []byte, key []byte) (resp AuthAddCapsResp, err error) {
 	var (
 		plaintext []byte
 	)

@@ -73,11 +73,11 @@ func genTicket(serviceID string, IP string, caps []byte) (ticket cryptoutil.Tick
 	return
 }
 
-func genClientGetTicketAuthResponse(req *proto.MsgAuthGetTicketReq, ts int64, r *http.Request) (message string, err error) {
+func genClientGetTicketAuthResponse(req *proto.AuthGetTicketReq, ts int64, r *http.Request) (message string, err error) {
 	var (
 		jticket   []byte
 		jresp     []byte
-		resp      proto.MsgAuthGetTicketResp
+		resp      proto.AuthGetTicketResp
 		masterKey []byte
 		caps      []byte
 	)
@@ -147,7 +147,7 @@ func parseVerifier(verifier string, key []byte) (ts int64, err error) {
 	return
 }
 
-func validateGetTicketReqFormat(req *proto.MsgAuthGetTicketReq) (err error) {
+func validateGetTicketReqFormat(req *proto.AuthGetTicketReq) (err error) {
 	if err = proto.IsValidClientID(req.ClientID); err != nil {
 		return
 	}
@@ -162,8 +162,8 @@ func validateGetTicketReqFormat(req *proto.MsgAuthGetTicketReq) (err error) {
 	return
 }
 
-func genAPIAccessResp(req *proto.MsgAPIAccessReq, ts int64, key []byte) (resp proto.MsgAPIAccessResp) {
-	resp.Type = proto.AuthReq2RespMap[req.Type]
+func genAPIAccessResp(req *proto.APIAccessReq, ts int64, key []byte) (resp proto.APIAccessResp) {
+	resp.Type = req.Type + 1
 	resp.ClientID = req.ClientID
 	resp.ServiceID = req.ServiceID
 	// increase ts by one for client verify server
@@ -171,13 +171,13 @@ func genAPIAccessResp(req *proto.MsgAPIAccessReq, ts int64, key []byte) (resp pr
 	return
 }
 
-func genAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+func genAddUserResponse(req *proto.AuthCreateUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
 	var (
 		jresp []byte
-		resp  proto.MsgAuthCreateUserResp
+		resp  proto.AuthCreateUserResp
 	)
 
-	resp.ApiResp = genAPIAccessResp(&req.ApiReq, ts, key)
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
 	resp.UserInfo = req.UserInfo
 
 	if jresp, err = json.Marshal(resp); err != nil {
@@ -191,13 +191,13 @@ func genAddUserResponse(req *proto.MsgAuthCreateUserReq, ts int64, key []byte, r
 	return
 }
 
-func genAddCapsResponse(req *proto.MsgAuthAddCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+func genAddCapsResponse(req *proto.AuthAddCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
 	var (
 		jresp []byte
-		resp  proto.MsgAuthAddCapsResp
+		resp  proto.AuthAddCapsResp
 	)
 
-	resp.ApiResp = genAPIAccessResp(&req.ApiReq, ts, key)
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
 	resp.Caps = req.Caps
 
 	if jresp, err = json.Marshal(resp); err != nil {
@@ -215,7 +215,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
 		err       error
-		jobj      proto.MsgAuthGetTicketReq
+		jobj      proto.AuthGetTicketReq
 		ts        int64
 		userInfo  keystore.UserInfo
 		message   string
@@ -287,7 +287,7 @@ func checkTicketCapacity(ticket *cryptoutil.Ticket, kind string, cap string) (er
 	return
 }
 
-func verifyAPIAccessReqCommon(req *proto.MsgAPIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
+func verifyAPIAccessReqCommon(req *proto.APIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
 	var (
 		masterKey []byte
 	)
@@ -326,7 +326,7 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
 		err       error
-		jobj      proto.MsgAuthCreateUserReq
+		jobj      proto.AuthCreateUserReq
 		ts        int64
 		ticket    cryptoutil.Ticket
 		//userInfo  keystore.UserInfo
@@ -353,7 +353,7 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
-	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.ApiReq, "API", "createuser"); err != nil {
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "createuser"); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 	}
 
@@ -377,7 +377,7 @@ func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
 		err       error
-		jobj      proto.MsgAuthAddCapsReq
+		jobj      proto.AuthAddCapsReq
 		ts        int64
 		ticket    cryptoutil.Ticket
 		newCaps   []byte
@@ -399,7 +399,7 @@ func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Successfully Unmarshal")
 
 	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
-	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.ApiReq, "API", "addcaps"); err != nil {
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "addcaps"); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 	}
 
