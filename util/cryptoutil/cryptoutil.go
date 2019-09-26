@@ -42,7 +42,7 @@ func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 
 	paddedText := pad(plaintext)
 
-	if len(paddedText) % aes.BlockSize != 0 {
+	if len(paddedText)%aes.BlockSize != 0 {
 		err = fmt.Errorf("paddedText [len=%d] is not a multiple of the block size", len(paddedText))
 		return
 	}
@@ -52,14 +52,14 @@ func AesEncryptCBC(key, plaintext []byte) (ciphertext []byte, err error) {
 		return
 	}
 
-	ciphertext = make([]byte, aes.BlockSize + len(paddedText))
-	iv := ciphertext[ : aes.BlockSize]
+	ciphertext = make([]byte, aes.BlockSize+len(paddedText))
+	iv := ciphertext[:aes.BlockSize]
 	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
 		return
 	}
 
 	cbc := cipher.NewCBCEncrypter(block, iv)
-	cbc.CryptBlocks(ciphertext[aes.BlockSize : ], paddedText)
+	cbc.CryptBlocks(ciphertext[aes.BlockSize:], paddedText)
 
 	return
 }
@@ -77,8 +77,8 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 		return
 	}
 
-	iv := ciphertext[ : aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize : ]
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
 
 	cbc := cipher.NewCBCDecrypter(block, iv)
 	cbc.CryptBlocks(ciphertext, ciphertext)
@@ -89,7 +89,7 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 }
 
 // GenSessionKey generate a master key according to pair {key and data}
-func GenMasterKey(key []byte, data []byte) (masterKey [] byte) {
+func GenMasterKey(key []byte, data []byte) (masterKey []byte) {
 	masterKey = genSessionKey(key, data)
 	return
 }
@@ -127,18 +127,18 @@ func EncodeMessage(plaintext []byte, key []byte) (message string, err error) {
 	var cipher []byte
 
 	// 8 for random number; 16 for md5 hash
-	buffer := make([]byte, RandomNumberSize + CheckSumSize + len(plaintext))
+	buffer := make([]byte, RandomNumberSize+CheckSumSize+len(plaintext))
 
 	// add random
 	random := rand2.Uint64()
-	binary.LittleEndian.PutUint64(buffer[RandomNumberOffset : ], random)
+	binary.LittleEndian.PutUint64(buffer[RandomNumberOffset:], random)
 
 	// add request body
-	copy(buffer[MessageOffset : ], plaintext)
+	copy(buffer[MessageOffset:], plaintext)
 
 	// calculate and add checksum
 	checksum := md5.Sum(buffer)
-	copy(buffer[CheckSumOffset : ], checksum[ : ])
+	copy(buffer[CheckSumOffset:], checksum[:])
 
 	// encryption with aes CBC with keysize of 256-bit
 	if cipher, err = AesEncryptCBC(key, buffer); err != nil {
@@ -146,7 +146,7 @@ func EncodeMessage(plaintext []byte, key []byte) (message string, err error) {
 	}
 	// base64 encoding
 	message = base64.StdEncoding.EncodeToString(cipher)
-	fmt.Printf("EncodeMessge CBC: %s\n", message)
+	//fmt.Printf("EncodeMessge CBC: %s\n", message)
 	return
 
 }
@@ -170,13 +170,13 @@ func DecodeMessage(message string, key []byte) (plaintext []byte, err error) {
 		err = fmt.Errorf("invalid json format with size [%d] less than message meta data size", len(decodedText))
 		return
 	}
-	
+
 	msgChecksum := make([]byte, CheckSumSize)
-	copy(msgChecksum, decodedText[CheckSumOffset : CheckSumOffset + CheckSumSize])
-	
+	copy(msgChecksum, decodedText[CheckSumOffset:CheckSumOffset+CheckSumSize])
+
 	// calculate checksum
 	filltext := bytes.Repeat([]byte{byte(0)}, CheckSumSize)
-	copy(decodedText[CheckSumOffset : ], filltext[ : ])
+	copy(decodedText[CheckSumOffset:], filltext[:])
 	newChecksum := md5.Sum(decodedText)
 
 	// verify checksum
@@ -184,8 +184,8 @@ func DecodeMessage(message string, key []byte) (plaintext []byte, err error) {
 		err = fmt.Errorf("checksum not match")
 	}
 
-	plaintext = decodedText[MessageOffset : ]
+	plaintext = decodedText[MessageOffset:]
 
-	fmt.Printf("DecodeMessage CBC: %s\n", plaintext)
+	//fmt.Printf("DecodeMessage CBC: %s\n", plaintext)
 	return
 }

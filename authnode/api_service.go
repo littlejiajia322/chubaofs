@@ -88,7 +88,7 @@ func genClientGetTicketAuthResponse(req *proto.AuthGetTicketReq, ts int64, r *ht
 	resp.IP = iputil.RealIP(r)
 	// increase ts by one for client verify server
 	resp.Verifier = ts + 1
-	if caps, err = keystore.RetrieveUserCapability(resp.ClientID); err != nil {
+	if caps, err = keystore.GetCaps(resp.ClientID); err != nil {
 		return
 	}
 	ticket := genTicket(resp.ServiceID, resp.IP, caps)
@@ -101,7 +101,7 @@ func genClientGetTicketAuthResponse(req *proto.AuthGetTicketReq, ts int64, r *ht
 	if resp.ServiceID == proto.AuthServiceID {
 		masterKey = keystore.AuthMasterKey
 	} else {
-		if masterKey, err = keystore.RetrieveUserMasterKey(resp.ServiceID); err != nil {
+		if masterKey, err = keystore.GetMasterKey(resp.ServiceID); err != nil {
 			return
 		}
 	}
@@ -117,7 +117,7 @@ func genClientGetTicketAuthResponse(req *proto.AuthGetTicketReq, ts int64, r *ht
 	}
 
 	// Use client key to encrypt response message
-	if masterKey, err = keystore.RetrieveUserMasterKey(resp.ClientID); err != nil {
+	if masterKey, err = keystore.GetMasterKey(resp.ClientID); err != nil {
 		return
 	}
 	if message, err = cryptoutil.EncodeMessage(jresp, masterKey); err != nil {
@@ -191,6 +191,52 @@ func genAddUserResponse(req *proto.AuthCreateUserReq, ts int64, key []byte, r *h
 	return
 }
 
+func genDeleteUserResponse(req *proto.AuthDeleteUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.AuthDeleteUserResp
+	)
+
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+
+	if resp.UserInfo, err = keystore.GetUserInfo(req.ID); err != nil {
+		return
+	}
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		return
+	}
+
+	return
+}
+
+func genGetUserResponse(req *proto.AuthGetUserReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.AuthGetUserResp
+	)
+
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+
+	if resp.UserInfo, err = keystore.GetUserInfo(req.ID); err != nil {
+		return
+	}
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		return
+	}
+
+	return
+}
+
 func genAddCapsResponse(req *proto.AuthAddCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
 	var (
 		jresp []byte
@@ -199,6 +245,49 @@ func genAddCapsResponse(req *proto.AuthAddCapsReq, ts int64, key []byte, r *http
 
 	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
 	resp.Caps = req.Caps
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		return
+	}
+
+	return
+}
+
+func genDeleteCapsResponse(req *proto.AuthDeleteCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.AuthDeleteCapsResp
+	)
+
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+	resp.Caps = req.Caps
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		return
+	}
+
+	return
+}
+
+func genGetCapsResponse(req *proto.AuthGetCapsReq, ts int64, key []byte, r *http.Request) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.AuthGetCapsResp
+	)
+
+	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+
+	if resp.Caps, err = keystore.GetCaps(req.ID); err != nil {
+		return
+	}
 
 	if jresp, err = json.Marshal(resp); err != nil {
 		return
@@ -234,7 +323,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: check db
-	if userInfo, err = keystore.RetrieveUserInfo(jobj.ClientID); err != nil {
+	if userInfo, err = keystore.GetUserInfo(jobj.ClientID); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -372,6 +461,90 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (m *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.AuthDeleteUserReq
+		ts        int64
+		ticket    cryptoutil.Ticket
+		//userInfo  keystore.UserInfo
+		message string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println("Successfully Unmarshal")
+
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "deleteuser"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	// should before keystore.DeleteUser
+	if message, err = genDeleteUserResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if err = keystore.DeleteUser(jobj.ID); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+
+	return
+}
+
+func (m *Server) getUser(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.AuthGetUserReq
+		ts        int64
+		ticket    cryptoutil.Ticket
+		//userInfo  keystore.UserInfo
+		message string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println("Successfully Unmarshal")
+
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "deleteuser"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	if message, err = genGetUserResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+
+	return
+}
+
 // addCaps
 func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
 	var (
@@ -418,7 +591,86 @@ func (m *Server) addCaps(w http.ResponseWriter, r *http.Request) {
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
 }
 
-func (m *Server) showID(w http.ResponseWriter, r *http.Request) {
+func (m *Server) deleteCaps(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.AuthDeleteCapsReq
+		ts        int64
+		ticket    cryptoutil.Ticket
+		newCaps   []byte
+		message   string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println("Successfully Unmarshal")
+
+	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "deletecaps"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	if newCaps, err = keystore.DeleteCaps(jobj.ID, jobj.Caps); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	jobj.Caps = newCaps
+
+	if message, err = genDeleteCapsResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+}
+
+func (m *Server) getCaps(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.AuthGetCapsReq
+		ts        int64
+		ticket    cryptoutil.Ticket
+		message   string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Printf("message=%s\n", plaintext)
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	fmt.Println("Successfully Unmarshal")
+
+	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
+	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "getcaps"); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	}
+
+	if message, err = genGetCapsResponse(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
 }
 
 func newSuccessHTTPAuthReply(data interface{}) *proto.HTTPAuthReply {

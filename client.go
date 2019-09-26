@@ -27,7 +27,7 @@ func genVerifier(key []byte) (v string, err error) {
 	if v, err = cryptoutil.EncodeMessage(tsbuf, []byte(key)); err != nil {
 		panic(err)
 	}
-	fmt.Printf("genVerifier %s\n", v)
+	//fmt.Printf("genVerifier %s\n", v)
 	return
 }
 
@@ -44,7 +44,7 @@ func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string)
 
 	// construct request body
 	messageStruct := proto.AuthGetTicketReq{Type: msgType, ClientID: clientID, ServiceID: serviceID, Verifier: ""}
-	if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
+	if masterKey, err = keystore.GetMasterKey(clientID); err != nil {
 		panic(err)
 	}
 
@@ -56,7 +56,7 @@ func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string)
 		panic(err)
 	}
 
-	fmt.Printf(string(messageJSON) + "\n")
+	//fmt.Printf(string(messageJSON) + "\n")
 
 	message = base64.StdEncoding.EncodeToString(messageJSON)
 
@@ -73,7 +73,7 @@ func getTicketFromAuth(msgType proto.MsgType, clientID string, serviceID string)
 	}
 	//fmt.Printf("\nrespose: %s\n", body)
 
-	if masterKey, err = keystore.RetrieveUserMasterKey(clientID); err != nil {
+	if masterKey, err = keystore.GetMasterKey(clientID); err != nil {
 		panic(err)
 	}
 
@@ -129,7 +129,7 @@ func testAuthAddUser(uid string, role string, caps []byte) {
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
 	}
-	fmt.Printf(string(messageJSON) + "\n")
+	//fmt.Printf(string(messageJSON) + "\n")
 
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
@@ -144,9 +144,113 @@ func testAuthAddUser(uid string, role string, caps []byte) {
 	if err2 != nil {
 		panic(err2)
 	}
-	fmt.Printf("\nrespose: %s\n", body)
+	//fmt.Printf("\nrespose: %s\n", body)
 
 	if msgResp, err = proto.ParseAuthCreateUserResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	msgResp.UserInfo.Dump()
+
+	return
+}
+
+func testAuthGetUser(uid string) {
+	var (
+		messageJSON []byte
+		err         error
+		msgResp     proto.AuthGetUserResp
+		//masterKey   []byte
+	)
+
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
+	req := proto.AuthGetUserReq{}
+	req.APIReq.Type = proto.MsgAuthGetUserReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
+
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
+	req.APIReq.Ticket = ticket
+
+	req.ID = uid
+
+	if messageJSON, err = json.Marshal(req); err != nil {
+		panic(err)
+	}
+	//fmt.Printf(string(messageJSON) + "\n")
+
+	message := base64.StdEncoding.EncodeToString(messageJSON)
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/admin/getuser",
+		url.Values{"Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthGetUserResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	msgResp.UserInfo.Dump()
+
+	return
+}
+
+func testAuthDeleteUser(uid string) {
+	var (
+		messageJSON []byte
+		err         error
+		msgResp     proto.AuthDeleteUserResp
+		//masterKey   []byte
+	)
+
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
+	req := proto.AuthDeleteUserReq{}
+	req.APIReq.Type = proto.MsgAuthDeleteUserReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
+
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
+	req.APIReq.Ticket = ticket
+
+	req.ID = uid
+
+	if messageJSON, err = json.Marshal(req); err != nil {
+		panic(err)
+	}
+	//	fmt.Printf(string(messageJSON) + "\n")
+
+	message := base64.StdEncoding.EncodeToString(messageJSON)
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/admin/deleteuser",
+		url.Values{"Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthDeleteUserResp(body, sessionKey); err != nil {
 		panic(err)
 	}
 
@@ -181,7 +285,7 @@ func testAuthAddCaps(uid string, caps []byte) {
 	if messageJSON, err = json.Marshal(req); err != nil {
 		panic(err)
 	}
-	fmt.Printf(string(messageJSON) + "\n")
+	//fmt.Printf(string(messageJSON) + "\n")
 
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
@@ -196,13 +300,114 @@ func testAuthAddCaps(uid string, caps []byte) {
 	if err2 != nil {
 		panic(err2)
 	}
-	fmt.Printf("\nrespose: %s\n", body)
+	//fmt.Printf("\nrespose: %s\n", body)
 
 	if msgResp, err = proto.ParseAuthAddCapsResp(body, sessionKey); err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("new caps: %s\n", string(msgResp.Caps))
+	fmt.Printf("after add new caps: %s\n", string(msgResp.Caps))
+
+}
+
+func testAuthDeleteCaps(uid string, caps []byte) {
+	var (
+		err         error
+		messageJSON []byte
+		msgResp     proto.AuthDeleteCapsResp
+	)
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
+	req := proto.AuthAddCapsReq{}
+	req.APIReq.Type = proto.MsgAuthDeleteCapsReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
+
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
+
+	req.APIReq.Ticket = ticket
+
+	req.ID = uid
+	req.Caps = caps
+
+	if messageJSON, err = json.Marshal(req); err != nil {
+		panic(err)
+	}
+	//fmt.Printf(string(messageJSON) + "\n")
+
+	message := base64.StdEncoding.EncodeToString(messageJSON)
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/admin/deletecaps",
+		url.Values{"Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthDeleteCapsResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("after delete new caps: %s\n", string(msgResp.Caps))
+
+}
+
+func testAuthGetCaps(uid string) {
+	var (
+		err         error
+		messageJSON []byte
+		msgResp     proto.AuthGetCapsResp
+	)
+	clientID := "admin"
+	ticket, sessionKey := getTicketFromAuth(proto.MsgAuthTicketReq, clientID, proto.AuthServiceID)
+
+	req := proto.AuthAddCapsReq{}
+	req.APIReq.Type = proto.MsgAuthGetCapsReq
+	req.APIReq.ClientID = clientID
+	req.APIReq.ServiceID = proto.AuthServiceID
+
+	if req.APIReq.Verifier, err = genVerifier(sessionKey); err != nil {
+		panic(err)
+	}
+
+	req.APIReq.Ticket = ticket
+
+	req.ID = uid
+
+	if messageJSON, err = json.Marshal(req); err != nil {
+		panic(err)
+	}
+	//fmt.Printf(string(messageJSON) + "\n")
+
+	message := base64.StdEncoding.EncodeToString(messageJSON)
+
+	// We can use POST form to get result, too.
+	resp, err := http.PostForm("http://localhost:8081/admin/getcaps",
+		url.Values{"Message": {message}})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		panic(err2)
+	}
+	//fmt.Printf("\nrespose: %s\n", body)
+
+	if msgResp, err = proto.ParseAuthGetCapsResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("get new caps: %s\n", string(msgResp.Caps))
 
 }
 
@@ -212,12 +417,18 @@ func main() {
 	testAuthGetTicket()
 	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 	testAuthAddUser("zeng", "client", []byte(`{"API":["mount"]}`))
+	testAuthGetUser("zeng")
+	testAuthDeleteUser("zeng")
 	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthAddUser("zeng", "client", []byte(`{"API":["mount"]}`))
 	testAuthAddCaps("zeng", []byte(`{"API":["open"]}`))
-	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 	testAuthAddCaps("zeng", []byte(`{"API":["open"]}`))
-	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthGetCaps("zeng")
+	testAuthDeleteCaps("zeng", []byte(`{"API":["open"]}`))
+	testAuthGetCaps("zeng")
 	testAuthAddCaps("zeng", []byte(`{"API":["*"]}`))
-
+	testAuthGetCaps("zeng")
+	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	testAuthDeleteUser("zeng")
 	return
 }

@@ -50,6 +50,26 @@ func (c *Caps) Union(caps *Caps) {
 	c.cleanDup()
 }
 
+// Delete delete caps
+func (c *Caps) Delete(caps *Caps) {
+	m := make(map[string]bool)
+	for _, item := range c.API {
+		m[item] = true
+	}
+	c.API = []string{}
+	for _, item := range caps.API {
+		if item == "*" {
+			return
+		}
+		if _, ok := m[item]; ok {
+			delete(m, item)
+		}
+	}
+	for k := range m {
+		c.API = append(c.API, k)
+	}
+}
+
 func (c *Caps) cleanDup() {
 	API := make([]string, 0)
 	m := make(map[string]bool)

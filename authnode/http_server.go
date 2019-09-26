@@ -67,8 +67,11 @@ func (m *Server) handleFunctions() {
 	*/
 	http.HandleFunc(proto.ClientGetTicket, m.getTicket)
 	http.HandleFunc(proto.AdminCreateUser, m.createUser)
+	http.HandleFunc(proto.AdminDeleteUser, m.deleteUser)
+	http.HandleFunc(proto.AdminGetUser, m.getUser)
 	http.HandleFunc(proto.AdminAddCaps, m.addCaps)
-	http.HandleFunc(proto.AdminShowID, m.showID)
+	http.HandleFunc(proto.AdminDeleteCaps, m.deleteCaps)
+	http.HandleFunc(proto.AdminGetCaps, m.getCaps)
 
 	return
 }

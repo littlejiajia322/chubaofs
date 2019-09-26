@@ -101,7 +101,16 @@ func (m *keystore) addValue(id string, info *UserInfo) (err error) {
 	return
 }
 
-func (m *keystore) addCaps(id string, caps []byte) (err error) {
+func (m *keystore) deleteValue(id string) (err error) {
+	if _, ok := m.Content[id]; !ok {
+		err = fmt.Errorf("ID [%s] is not existed in system", id)
+		return
+	}
+	delete(m.Content, id)
+	return
+}
+
+func (m *keystore) updateCaps(id string, caps []byte) (err error) {
 	if _, ok := m.Content[id]; !ok {
 		err = fmt.Errorf("ID [%s] is not existed in system", id)
 		return
@@ -117,16 +126,16 @@ func (m *keystore) addCaps(id string, caps []byte) (err error) {
 // AuthMasterKey defines the Master key for Auth Service
 var AuthMasterKey = []byte("44444444444444444444444444444444")
 
-// RetrieveUserInfo return the key according to user ID from keystore
-func RetrieveUserInfo(id string) (userInfo UserInfo, err error) {
+// GetUserInfo return the key according to user ID from keystore
+func GetUserInfo(id string) (userInfo UserInfo, err error) {
 	if userInfo, err = Keystore.getValue(id); err != nil {
 		return
 	}
 	return
 }
 
-// RetrieveUserMasterKey return the master key from keystore according to user ID
-func RetrieveUserMasterKey(id string) (key []byte, err error) {
+// GetMasterKey return the master key from keystore according to user ID
+func GetMasterKey(id string) (key []byte, err error) {
 	var (
 		userInfo UserInfo
 	)
@@ -137,8 +146,8 @@ func RetrieveUserMasterKey(id string) (key []byte, err error) {
 	return
 }
 
-// RetrieveUserCapability return the capbility from keystore according to user ID
-func RetrieveUserCapability(id string) (caps []byte, err error) {
+// GetCaps return the capbility from keystore according to user ID
+func GetCaps(id string) (caps []byte, err error) {
 	var (
 		userInfo UserInfo
 	)
@@ -153,7 +162,15 @@ func RetrieveUserCapability(id string) (caps []byte, err error) {
 func AddNewUser(id string, userInfo *UserInfo) (res UserInfo, err error) {
 	res = *userInfo
 	res.Key = genClientMasterKey(userInfo.ID)
-	if err = Keystore.addValue(id, userInfo); err != nil {
+	if err = Keystore.addValue(id, &res); err != nil {
+		return
+	}
+	return
+}
+
+// DeleteUser delete an user in Keystore
+func DeleteUser(id string) (err error) {
+	if err = Keystore.deleteValue(id); err != nil {
 		return
 	}
 	return
@@ -169,7 +186,7 @@ func AddCaps(id string, add []byte) (newCaps []byte, err error) {
 	if err = addCaps.Init(add); err != nil {
 		return
 	}
-	if cur, err = RetrieveUserCapability(id); err != nil {
+	if cur, err = GetCaps(id); err != nil {
 		return
 	}
 	curCaps := new(caps.Caps)
@@ -182,7 +199,34 @@ func AddCaps(id string, add []byte) (newCaps []byte, err error) {
 	if newCaps, err = json.Marshal(curCaps); err != nil {
 		return
 	}
-	Keystore.addCaps(id, newCaps)
+	Keystore.updateCaps(id, newCaps)
+	return
+}
+
+// DeleteCaps add caps for existing user
+func DeleteCaps(id string, del []byte) (newCaps []byte, err error) {
+	var (
+		cur []byte
+	)
+
+	delCaps := new(caps.Caps)
+	if err = delCaps.Init(del); err != nil {
+		return
+	}
+	if cur, err = GetCaps(id); err != nil {
+		return
+	}
+	curCaps := new(caps.Caps)
+	if err = curCaps.Init(cur); err != nil {
+		return
+	}
+
+	curCaps.Delete(delCaps)
+
+	if newCaps, err = json.Marshal(curCaps); err != nil {
+		return
+	}
+	Keystore.updateCaps(id, newCaps)
 	return
 }
 

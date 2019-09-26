@@ -39,8 +39,11 @@ const (
 
 	// Admin APIs
 	AdminCreateUser = "/admin/createuser"
+	AdminDeleteUser = "/admin/deleteuser"
+	AdminGetUser    = "/admin/getuser"
 	AdminAddCaps    = "/admin/addcaps"
-	AdminShowID     = "/admin/showid"
+	AdminDeleteCaps = "/admin/deletecaps"
+	AdminGetCaps    = "/admin/getcaps"
 
 	//raft node APIs
 
@@ -115,6 +118,18 @@ const (
 
 	// MsgAuthAddCapsResp response type for authnode add caps
 	MsgAuthAddCapsResp MsgType = MsgAuthBase + 0x54001
+
+	// MsgAuthDeleteCapsReq request type for authnode add caps
+	MsgAuthDeleteCapsReq MsgType = MsgAuthBase + 0x55000
+
+	// MsgAuthDeleteCapsResp response type for authnode add caps
+	MsgAuthDeleteCapsResp MsgType = MsgAuthBase + 0x55001
+
+	// MsgAuthGetCapsReq request type for authnode add caps
+	MsgAuthGetCapsReq MsgType = MsgAuthBase + 0x56000
+
+	// MsgAuthGetCapsResp response type for authnode add caps
+	MsgAuthGetCapsResp MsgType = MsgAuthBase + 0x56001
 
 	// MsgMasterAPIAccessReq request type for master api access
 	MsgMasterAPIAccessReq MsgType = 0x60000
@@ -194,27 +209,65 @@ type AuthCreateUserResp struct {
 
 // AuthDeleteUserReq defines the request for deleting an authnode user
 type AuthDeleteUserReq struct {
-	APIReq   APIAccessReq `json:"api_req"`
-	ClientID string       `json:"id"`
+	APIReq APIAccessReq `json:"api_req"`
+	ID     string       `json:"id"`
 }
 
-// AuthAddCapsReq defines the message for adding caps for a user in authnode
+// AuthDeleteUserResp defines the response for deleting an authnode user
+type AuthDeleteUserResp struct {
+	APIResp  APIAccessResp     `json:"api_req"`
+	UserInfo keystore.UserInfo `json:"user_info"`
+}
+
+// AuthGetUserReq defines the request for getting an authnode user
+type AuthGetUserReq struct {
+	APIReq APIAccessReq `json:"api_req"`
+	ID     string       `json:"id"`
+}
+
+// AuthGetUserResp defines the response for getting an authnode user
+type AuthGetUserResp struct {
+	APIResp  APIAccessResp     `json:"api_req"`
+	UserInfo keystore.UserInfo `json:"user_info"`
+}
+
+// AuthAddCapsReq defines the request for adding caps for a user in authnode
 type AuthAddCapsReq struct {
 	APIReq APIAccessReq `json:"apiReq"`
 	ID     string       `json:"id"`
 	Caps   []byte       `json:"caps"`
 }
 
-// AuthAddCapsResp defines the message for adding caps for a user in authnode
+// AuthAddCapsResp defines the response for adding caps for a user in authnode
 type AuthAddCapsResp struct {
 	APIResp APIAccessResp `json:"apiReq"`
 	Caps    []byte        `json:"caps"`
 }
 
-// AuthDeleteCapsReq defines the message for adding caps for an user in authnode
+// AuthGetCapsReq defines the request for getting caps for a user in authnode
+type AuthGetCapsReq struct {
+	APIReq APIAccessReq `json:"apiReq"`
+	ID     string       `json:"id"`
+}
+
+// AuthGetCapsResp defines the response for getting caps for a user in authnode
+type AuthGetCapsResp struct {
+	APIResp APIAccessResp `json:"apiReq"`
+	Caps    []byte        `json:"caps"`
+}
+
+// AuthDeleteCapsReq defines the message for deleting caps for an user in authnode
 type AuthDeleteCapsReq struct {
 	APIReq APIAccessReq `json:"apiReq"`
+	ID     string       `json:"id"`
 	Caps   []byte       `json:"caps"`
+}
+
+// AuthDeleteCapsResp defines the message for deleting caps for an user in authnode
+type AuthDeleteCapsResp struct {
+	APIResp APIAccessResp `json:"apiReq"`
+	ID      string        `json:"id"`
+	Caps    []byte        `json:"caps"`
 }
 
 // IsValidServiceID determine the validity of a serviceID
@@ -309,8 +362,76 @@ func ParseAuthCreateUserResp(body []byte, key []byte) (resp AuthCreateUserResp, 
 	return
 }
 
+// ParseAuthDeleteUserResp parse and validate the auth delete user resp
+func ParseAuthDeleteUserResp(body []byte, key []byte) (resp AuthDeleteUserResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
+
+// ParseAuthGetUserResp parse and validate the auth get user resp
+func ParseAuthGetUserResp(body []byte, key []byte) (resp AuthGetUserResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
+
 // ParseAuthAddCapsResp parse and validate the auth add caps resp
 func ParseAuthAddCapsResp(body []byte, key []byte) (resp AuthAddCapsResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
+
+// ParseAuthDeleteCapsResp parse and validate the auth delete caps resp
+func ParseAuthDeleteCapsResp(body []byte, key []byte) (resp AuthDeleteCapsResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
+
+// ParseAuthGetCapsResp parse and validate the auth get caps resp
+func ParseAuthGetCapsResp(body []byte, key []byte) (resp AuthGetCapsResp, err error) {
 	var (
 		plaintext []byte
 	)

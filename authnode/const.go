@@ -18,6 +18,7 @@ package authnode
 const (
 	TicketVersion     = 1
 	ClientMessage     = "Message"
+	MessageType       = "Type"
 	TicketReqDuration = 10
 	TicketDuration    = 24 * 60 * 60
 )
