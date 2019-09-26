@@ -42,7 +42,7 @@ func (u *UserInfo) Dump() {
 func (u *UserInfo) IsValidFormat() (err error) {
 	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
 	if !re.MatchString(u.ID) {
-		err = fmt.Errorf("ID invalid format %s", u.ID)
+		err = fmt.Errorf("ID invalid format [%s]", u.ID)
 		return
 	}
 

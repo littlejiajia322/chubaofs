@@ -101,6 +101,7 @@ func (m *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	// TODO: check ServiceID == AuthMasterService; pass value to pass reference
 	if ticket, ts, err = verifyAPIAccessReqCommon(&jobj.APIReq, "API", "createuser"); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
 	}
 
 	if jobj.UserInfo, err = keystore.AddNewUser(jobj.UserInfo.ID, &jobj.UserInfo); err != nil {
