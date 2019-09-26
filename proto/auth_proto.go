@@ -305,7 +305,8 @@ func IsValidClientID(id string) (err error) {
 	return
 }
 
-func getPlaintextFromResp(body []byte, key []byte) (plaintext []byte, err error) {
+// GetMessageFromResp
+func GetDataFromResp(body []byte, key []byte) (plaintext []byte, err error) {
 	var (
 		jobj HTTPAuthReply
 	)
@@ -334,7 +335,7 @@ func ParseAuthGetTicketResp(body []byte, key []byte) (resp AuthGetTicketResp, er
 		plaintext []byte
 	)
 
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+	if plaintext, err = GetDataFromResp(body, key); err != nil {
 		return
 	}
 
@@ -345,6 +346,7 @@ func ParseAuthGetTicketResp(body []byte, key []byte) (resp AuthGetTicketResp, er
 	return
 }
 
+/*
 // ParseAuthCreateUserResp parse and validate the auth create user resp
 func ParseAuthCreateUserResp(body []byte, key []byte) (resp AuthCreateUserResp, err error) {
 	var (
@@ -446,3 +448,19 @@ func ParseAuthGetCapsResp(body []byte, key []byte) (resp AuthGetCapsResp, err er
 
 	return
 }
+
+func ParseAuthResp(body []byte, key []byte) (data interface{}, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = getMessageFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &data); err != nil {
+		return
+	}
+
+	return
+}*/

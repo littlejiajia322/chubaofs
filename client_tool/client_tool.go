@@ -97,8 +97,8 @@ func sendReq(u string, data interface{}) (res []byte) {
 	return
 }
 
-func genVerifier(key []byte) (v string, err error) {
-	ts := time.Now().Unix()
+func genVerifier(key []byte) (v string, ts int64, err error) {
+	ts = time.Now().Unix()
 	tsbuf := make([]byte, unsafe.Sizeof(ts))
 	binary.LittleEndian.PutUint64(tsbuf, uint64(ts))
 	if v, err = cryptoutil.EncodeMessage(tsbuf, []byte(key)); err != nil {
@@ -109,9 +109,8 @@ func genVerifier(key []byte) (v string, err error) {
 
 func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 	var (
-		err error
-		//messageJSON []byte
-		//message string
+		err     error
+		ts      int64
 		msgResp proto.AuthGetTicketResp
 	)
 
@@ -122,7 +121,7 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		ServiceID: proto.AuthServiceID,
 	}
 
-	if messageStruct.Verifier, err = genVerifier([]byte(keyring.Key)); err != nil {
+	if messageStruct.Verifier, ts, err = genVerifier([]byte(keyring.Key)); err != nil {
 		panic(err)
 	}
 
@@ -135,6 +134,8 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 	ticketfile.Ticket = msgResp.Ticket
 	ticketfile.Key = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
 	ticketfile.ID = keyring.ID
+
+	fmt.Println(ts)
 
 	return
 }
@@ -158,6 +159,8 @@ func accessAuthServer() {
 		sessionKey []byte
 		err        error
 		message    interface{}
+		data       []byte
+		ts         int64
 	)
 
 	switch flaginfo.api.request {
@@ -172,22 +175,22 @@ func accessAuthServer() {
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
 	}
 
-	secCFG := config.LoadConfigFile(flaginfo.api.ticket)
+	ticketCFG := config.LoadConfigFile(flaginfo.api.ticket)
 
 	apiReq := &proto.APIAccessReq{
 		Type:      msg,
-		ClientID:  secCFG.GetString("id"),
+		ClientID:  ticketCFG.GetString("id"),
 		ServiceID: proto.AuthServiceID,
 	}
 
-	if sessionKey, err = cryptoutil.Base64Decode(secCFG.GetString("key")); err != nil {
+	if sessionKey, err = cryptoutil.Base64Decode(ticketCFG.GetString("key")); err != nil {
 		panic(err)
 	}
 
-	if apiReq.Verifier, err = genVerifier(sessionKey); err != nil {
+	if apiReq.Verifier, ts, err = genVerifier(sessionKey); err != nil {
 		panic(err)
 	}
-	apiReq.Ticket = secCFG.GetString("ticket")
+	apiReq.Ticket = ticketCFG.GetString("ticket")
 
 	dataCFG := config.LoadConfigFile(flaginfo.api.data)
 
@@ -212,7 +215,21 @@ func accessAuthServer() {
 	}
 
 	body := sendReq(flaginfo.api.url, message)
-	fmt.Println(string(body))
+
+	if data, err = proto.GetDataFromResp(body, sessionKey); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("data--------" + string(data) + "\n")
+	respCFG := config.LoadConfigString(string(data))
+
+	fmt.Println(ts)
+	fmt.Printf("++ %d", respCFG.GetInt64("verifier"))
+
+	/*if ts+1 != respCFG.GetInt64("verifier") {
+		panic(fmt.Errorf("verifier failed [%d] [%d]", ts, respCFG.GetInt64("verifier")))
+	}*/
+
 }
 
 func accessAPI() {
