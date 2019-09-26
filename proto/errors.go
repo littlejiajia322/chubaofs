@@ -58,8 +58,8 @@ var (
 	ErrNoLeader                        = errors.New("no leader")
 	ErrVolAuthKeyNotMatch              = errors.New("client and server auth key do not match")
 
-	ErrMSGDecodeError                  = errors.New("message decode error")
-	ErrMSGVerifyError                  = errors.New("message verification error")
+	ErrMSGDecodeError = errors.New("message decode error")
+	ErrMSGVerifyError = errors.New("message verification error")
 )
 
 // http response error code and error message definitions
