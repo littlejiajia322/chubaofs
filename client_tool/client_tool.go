@@ -109,9 +109,9 @@ func genVerifier(key []byte) (v string, ts int64, err error) {
 
 func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 	var (
-		err     error
-		ts      int64
-		msgResp proto.AuthGetTicketResp
+		err error
+		ts  int64
+		//msgResp proto.AuthGetTicketResp
 	)
 
 	// construct request body
@@ -127,15 +127,24 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 
 	body := sendReq(flaginfo.ticket.url, messageStruct)
 
-	if msgResp, err = proto.ParseAuthGetTicketResp(body, []byte(keyring.Key)); err != nil {
+	var parser *proto.SecRespParser
+	parser, err = proto.CreateSecRespParser(body, []byte(keyring.Key))
+	if err != nil {
 		panic(err)
 	}
 
-	ticketfile.Ticket = msgResp.Ticket
-	ticketfile.Key = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
-	ticketfile.ID = keyring.ID
+	fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
+	fmt.Printf("%s\n", parser.API.Data)
 
-	fmt.Println(ts)
+	verifyRespComm(parser, proto.MsgAuthTicketReq, keyring.ID, proto.AuthServiceID, ts)
+
+	//if msgResp, err = proto.ParseAuthGetTicketResp(body, []byte(keyring.Key)); err != nil {
+	//	panic(err)
+	//}
+
+	ticketfile.Ticket = parser.Ticket.Ticket
+	ticketfile.Key = parser.Ticket.SessionKey
+	ticketfile.ID = keyring.ID
 
 	return
 }
@@ -230,6 +239,7 @@ func accessAuthServer() {
 		message = proto.AuthDeleteCapsReq{
 			APIReq: *apiReq,
 			ID:     dataCFG.GetString("id"),
+			Caps:   []byte(dataCFG.GetString("caps")),
 		}
 	case "getcaps":
 		message = proto.AuthGetCapsReq{
@@ -248,9 +258,13 @@ func accessAuthServer() {
 		panic(err)
 	}
 
+	verifyRespComm(parser, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+
 	fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
 	fmt.Printf("%s\n", parser.API.Data)
+}
 
+func verifyRespComm(parser *proto.SecRespParser, msg proto.MsgType, clientID string, serviceID string, ts int64) {
 	if ts+1 != parser.Comm.Verifier {
 		panic("verifier verification failed")
 	}
@@ -259,14 +273,14 @@ func accessAuthServer() {
 		panic("msg verification failed")
 	}
 
-	if parser.Comm.ClientID != ticketCFG.GetString("id") {
+	if parser.Comm.ClientID != clientID {
 		panic("id verification failed")
 	}
 
-	if parser.Comm.ServiceID != proto.AuthServiceID {
+	if parser.Comm.ServiceID != serviceID {
 		panic("service id verification failed")
 	}
-
+	return
 }
 
 func accessAPI() {
