@@ -88,13 +88,13 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	return
 }
 
-// GenSessionKey generate a master key according to pair {key and data}
+// GenMasterKey generate a master key according to pair {key and data}
 func GenMasterKey(key []byte, data []byte) (masterKey []byte) {
-	masterKey = genSessionKey(key, data)
+	masterKey = genKey(key, data)
 	return
 }
 
-func genSessionKey(key []byte, data []byte) (sessionKey []byte) {
+func genKey(key []byte, data []byte) (sessionKey []byte) {
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write([]byte(data))
 	sessionKey = h.Sum(nil)
@@ -104,7 +104,7 @@ func genSessionKey(key []byte, data []byte) (sessionKey []byte) {
 // AuthGenSessionKeyTS authnode generates a session key according to its master key and current timestamp
 func AuthGenSessionKeyTS(key []byte) (sessionKey []byte) {
 	data := []byte(strconv.FormatInt(int64(time.Now().Unix()), 10))
-	sessionKey = genSessionKey(key, data)
+	sessionKey = genKey(key, data)
 
 	//fmt.Println("session key ", hex.EncodeToString(sessionKey), len(sessionKey))
 	return

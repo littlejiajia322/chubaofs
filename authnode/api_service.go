@@ -284,6 +284,8 @@ func (m *Server) deleteCaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("new caps====%s\n", newCaps)
+
 	jobj.Caps = newCaps
 
 	if message, err = genDeleteCapsResp(&jobj, ts, ticket.SessionKey.Key, r); err != nil {
@@ -375,13 +377,12 @@ func genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *http.Request
 	resp.Type = proto.ServiceID2MsgRespMap[req.ServiceID]
 	resp.ClientID = req.ClientID
 	resp.ServiceID = req.ServiceID
-	resp.IP = iputil.RealIP(r)
 	// increase ts by one for client verify server
 	resp.Verifier = ts + 1
 	if caps, err = keystore.GetCaps(resp.ClientID); err != nil {
 		return
 	}
-	ticket := genTicket(resp.ServiceID, resp.IP, caps)
+	ticket := genTicket(resp.ServiceID, iputil.RealIP(r), caps)
 	resp.SessionKey = ticket.SessionKey
 
 	if jticket, err = json.Marshal(ticket); err != nil {
@@ -534,6 +535,7 @@ func genAddCapsResp(req *proto.AuthAddCapsReq, ts int64, key []byte, r *http.Req
 	)
 
 	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+	resp.ID = req.ID
 	resp.Caps = req.Caps
 
 	if jresp, err = json.Marshal(resp); err != nil {
@@ -552,6 +554,8 @@ func genDeleteCapsResp(req *proto.AuthDeleteCapsReq, ts int64, key []byte, r *ht
 		jresp []byte
 		resp  proto.AuthDeleteCapsResp
 	)
+
+	fmt.Printf("genDeleteCapsResp %s", string(jresp))
 
 	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
 	resp.Caps = req.Caps
@@ -574,6 +578,7 @@ func genGetCapsResp(req *proto.AuthGetCapsReq, ts int64, key []byte, r *http.Req
 	)
 
 	resp.APIResp = genAPIAccessResp(&req.APIReq, ts, key)
+	resp.ID = req.ID
 
 	if resp.Caps, err = keystore.GetCaps(req.ID); err != nil {
 		return
@@ -611,7 +616,6 @@ func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err er
 	if err = c.Init(ticket.Caps); err != nil {
 		return
 	}
-	fmt.Printf("+++++%s %s %s\n", string(ticket.Caps), kind, cap)
 	if b := c.ContainCaps(kind, cap); !b {
 		err = fmt.Errorf("no permission to access api")
 		return

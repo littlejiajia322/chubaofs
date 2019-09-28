@@ -16,26 +16,24 @@ var roleSet = map[string]bool{
 
 // UserInfo defines the user info structure in key store
 type UserInfo struct {
-	ID   string
-	Key  []byte
-	Role string
-	Caps []byte
+	ID   string `json:"id"`
+	Key  []byte `json:"key"`
+	Role string `json:"role"`
+	Caps []byte `json:"caps"`
 }
 
-func (u *UserInfo) Dump() {
+// Dump dump UserInfo
+func (u *UserInfo) Dump() (d string, err error) {
 	var (
 		caps caps.Caps
 	)
 
-	if err := json.Unmarshal(u.Caps, &caps); err != nil {
-		panic(err)
+	if err = json.Unmarshal(u.Caps, &caps); err != nil {
+		return
 	}
 
-	println("ID:\t", u.ID)
-	println("Key:\t", cryptoutil.Base64Encode(u.Key))
-	println("Role:\t", u.Role)
-	print("Caps:\t")
-	caps.DumpCaps()
+	d = fmt.Sprintf("ID:%s\nKey:%s\nRole:%s\nCaps%s\n", u.ID, u.Key, u.Role, caps.Dump())
+	return
 }
 
 // IsValidFormat is a valid of UserInfo
@@ -63,19 +61,23 @@ type keystore struct {
 	Content map[string]UserInfo
 }
 
+// Keystore in memory storage
 var Keystore = keystore{
 	Content: map[string]UserInfo{
 		"client1": {
+			ID:   "client1",
 			Key:  []byte("11111111111111111111111111111111"),
 			Role: "client",
 			Caps: []byte(`{"API": ["mount"]`),
 		},
 		"MasterService": {
+			ID:   "MasterService",
 			Key:  []byte("22222222222222222222222222222222"),
 			Role: "service",
 			Caps: []byte(`{}`),
 		},
 		"admin": {
+			ID:   "admin",
 			Key:  []byte("33333333333333333333333333333333"),
 			Role: "admin",
 			Caps: []byte(`{"API": ["*"]}`),

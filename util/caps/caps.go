@@ -36,10 +36,10 @@ func (c *Caps) Init(b []byte) (err error) {
 	return
 }
 
-// DumpCaps dump the content of Caps
-func (c *Caps) DumpCaps() {
+// Dump dump the content of Caps
+func (c *Caps) Dump() (d string) {
 	for _, s := range c.API {
-		fmt.Printf("API:%s\n", s)
+		d += fmt.Sprintf("API:%s\t", s)
 	}
 	return
 }

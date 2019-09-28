@@ -168,7 +168,6 @@ type AuthGetTicketResp struct {
 	Type       MsgType              `json:"type"`
 	ClientID   string               `json:"client_id"`
 	ServiceID  string               `json:"service_id"`
-	IP         string               `json:"ip"`
 	Verifier   int64                `json:"verifier"`
 	Ticket     string               `json:"ticket"`
 	SessionKey cryptoutil.CryptoKey `json:"session_key"`
@@ -215,7 +214,7 @@ type AuthDeleteUserReq struct {
 
 // AuthDeleteUserResp defines the response for deleting an authnode user
 type AuthDeleteUserResp struct {
-	APIResp  APIAccessResp     `json:"api_req"`
+	APIResp  APIAccessResp     `json:"api_resp"`
 	UserInfo keystore.UserInfo `json:"user_info"`
 }
 
@@ -227,45 +226,47 @@ type AuthGetUserReq struct {
 
 // AuthGetUserResp defines the response for getting an authnode user
 type AuthGetUserResp struct {
-	APIResp  APIAccessResp     `json:"api_req"`
+	APIResp  APIAccessResp     `json:"api_resp"`
 	UserInfo keystore.UserInfo `json:"user_info"`
 }
 
 // AuthAddCapsReq defines the request for adding caps for a user in authnode
 type AuthAddCapsReq struct {
-	APIReq APIAccessReq `json:"apiReq"`
+	APIReq APIAccessReq `json:"api_req"`
 	ID     string       `json:"id"`
 	Caps   []byte       `json:"caps"`
 }
 
 // AuthAddCapsResp defines the response for adding caps for a user in authnode
 type AuthAddCapsResp struct {
-	APIResp APIAccessResp `json:"apiReq"`
+	APIResp APIAccessResp `json:"api_resp"`
+	ID      string        `json:"id"`
 	Caps    []byte        `json:"caps"`
 }
 
 // AuthGetCapsReq defines the request for getting caps for a user in authnode
 type AuthGetCapsReq struct {
-	APIReq APIAccessReq `json:"apiReq"`
+	APIReq APIAccessReq `json:"api_req"`
 	ID     string       `json:"id"`
 }
 
 // AuthGetCapsResp defines the response for getting caps for a user in authnode
 type AuthGetCapsResp struct {
-	APIResp APIAccessResp `json:"apiReq"`
+	APIResp APIAccessResp `json:"api_resp"`
+	ID      string        `json:"id"`
 	Caps    []byte        `json:"caps"`
 }
 
 // AuthDeleteCapsReq defines the message for deleting caps for an user in authnode
 type AuthDeleteCapsReq struct {
-	APIReq APIAccessReq `json:"apiReq"`
+	APIReq APIAccessReq `json:"api_req"`
 	ID     string       `json:"id"`
 	Caps   []byte       `json:"caps"`
 }
 
 // AuthDeleteCapsResp defines the message for deleting caps for an user in authnode
 type AuthDeleteCapsResp struct {
-	APIResp APIAccessResp `json:"apiReq"`
+	APIResp APIAccessResp `json:"api_resp"`
 	ID      string        `json:"id"`
 	Caps    []byte        `json:"caps"`
 }
@@ -305,7 +306,7 @@ func IsValidClientID(id string) (err error) {
 	return
 }
 
-// GetMessageFromResp
+// GetDataFromResp extract data from response
 func GetDataFromResp(body []byte, key []byte) (plaintext []byte, err error) {
 	var (
 		jobj HTTPAuthReply
@@ -320,11 +321,24 @@ func GetDataFromResp(body []byte, key []byte) (plaintext []byte, err error) {
 	}
 
 	data := fmt.Sprint(jobj.Data)
-	//fmt.Println(data)
 
 	if plaintext, err = cryptoutil.DecodeMessage(data, key); err != nil {
 		return
 	}
+
+	var f interface{}
+	if err = json.Unmarshal(plaintext, &f); err != nil {
+		return
+	}
+
+	m := f.(map[string]interface{})
+	api := m["api_resp"]
+	v := api.(map[string]interface{})
+
+	fmt.Printf("%d\n", MsgType(v["type"].(float64)))
+	fmt.Printf("%s\n", v["client_id"].(string))
+	fmt.Printf("%s\n", v["service_id"].(string))
+	fmt.Printf("%f\n", v["verifier"].(float64))
 
 	return
 }
@@ -346,121 +360,150 @@ func ParseAuthGetTicketResp(body []byte, key []byte) (resp AuthGetTicketResp, er
 	return
 }
 
-/*
-// ParseAuthCreateUserResp parse and validate the auth create user resp
-func ParseAuthCreateUserResp(body []byte, key []byte) (resp AuthCreateUserResp, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
-		return
+// SecRespParser parse secure response
+type SecRespParser struct {
+	data map[string]interface{}
+	Comm struct {
+		Type      MsgType
+		ClientID  string
+		ServiceID string
+		Verifier  int64
 	}
+	Ticket struct {
+		Ticket     string
+		SessionKey string
+	}
+	API struct {
+		Data string
+	}
+}
 
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
-		return
+func (m *SecRespParser) getMsgType(v *map[string]interface{}, key string) (r MsgType) {
+	x, present := (*v)[key]
+	if !present {
+		return MsgType(0)
+	}
+	if r, isFloat64 := x.(float64); isFloat64 {
+		return MsgType(r)
+	}
+	return MsgType(0)
+}
+
+func (m *SecRespParser) getString(v *map[string]interface{}, key string) (r string) {
+	x, present := (*v)[key]
+	if !present {
+		return ""
+	}
+	if r, isString := x.(string); isString {
+		return r
+	}
+	return ""
+}
+
+func (m *SecRespParser) getInt64(v *map[string]interface{}, key string) (r int64) {
+	x, present := (*v)[key]
+	if !present {
+		return 0
+	}
+	if r, isInt64 := x.(float64); isInt64 {
+		return int64(r)
+	}
+	return 0
+}
+
+func (m *SecRespParser) setCommMembers(v *map[string]interface{}) (err error) {
+	m.Comm.Type = m.getMsgType(v, "type")
+	m.Comm.ClientID = m.getString(v, "client_id")
+	m.Comm.ServiceID = m.getString(v, "service_id")
+	m.Comm.Verifier = m.getInt64(v, "verifier")
+	return
+}
+
+func (m *SecRespParser) setSpecificMembers(v *map[string]interface{}, tp MsgType) {
+	switch tp {
+	case MsgAuthTicketResp:
+		m.Ticket.Ticket = m.getString(v, "ticket")
+		m.Ticket.SessionKey = m.getString(v, "session_key")
+	case MsgAuthCreateUserResp:
+		fallthrough
+	case MsgAuthGetUserResp:
+		fallthrough
+	case MsgAuthDeleteUserResp:
+		caps, err := cryptoutil.Base64Decode(m.getString(v, "caps"))
+		if err != nil {
+			panic(err)
+		}
+		m.API.Data = fmt.Sprintf("id=%s\nrole=%s\nkey=%s\ncaps=%s\n", m.getString(v, "id"), m.getString(v, "role"), m.getString(v, "key"), string(caps))
+	case MsgAuthAddCapsResp:
+		fallthrough
+	case MsgAuthGetCapsResp:
+		fallthrough
+	case MsgAuthDeleteCapsResp:
+		caps, err := cryptoutil.Base64Decode(m.getString(v, "caps"))
+		if err != nil {
+			panic(err)
+		}
+		m.API.Data = fmt.Sprintf("ID=%s\ncaps=%s\n", m.getString(v, "id"), caps)
+	default:
 	}
 
 	return
 }
 
-// ParseAuthDeleteUserResp parse and validate the auth delete user resp
-func ParseAuthDeleteUserResp(body []byte, key []byte) (resp AuthDeleteUserResp, err error) {
+func (m *SecRespParser) parse(body []byte, key []byte) (err error) {
 	var (
+		jobj      HTTPAuthReply
 		plaintext []byte
 	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
+	if err = json.Unmarshal(body, &jobj); err != nil {
 		return
 	}
 
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
+	if jobj.Code != 0 {
+		err = fmt.Errorf(jobj.Msg)
+		return
+	}
+
+	data := fmt.Sprint(jobj.Data)
+
+	if plaintext, err = cryptoutil.DecodeMessage(data, key); err != nil {
+		return
+	}
+
+	var f interface{}
+	if err = json.Unmarshal(plaintext, &f); err != nil {
+		return
+	}
+
+	mp := f.(map[string]interface{})
+
+	res, present := mp["api_resp"]
+
+	if !present { // get ticket response
+		m.setCommMembers(&mp)
+		m.setSpecificMembers(&mp, m.Comm.Type)
+	} else {
+		v := res.(map[string]interface{})
+		m.setCommMembers(&v)
+		res, present = mp["user_info"]
+		if !present { // caps API
+			m.setSpecificMembers(&mp, m.Comm.Type)
+		} else {
+			v = res.(map[string]interface{})
+			m.setSpecificMembers(&v, m.Comm.Type)
+		}
+	}
+	return
+}
+
+// CreateSecRespParser create a SecRespParser
+func CreateSecRespParser(body []byte, key []byte) (parser *SecRespParser, err error) {
+	parser = new(SecRespParser)
+	parser.data = make(map[string]interface{})
+
+	if err = parser.parse(body, key); err != nil {
 		return
 	}
 
 	return
 }
-
-// ParseAuthGetUserResp parse and validate the auth get user resp
-func ParseAuthGetUserResp(body []byte, key []byte) (resp AuthGetUserResp, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
-		return
-	}
-
-	return
-}
-
-// ParseAuthAddCapsResp parse and validate the auth add caps resp
-func ParseAuthAddCapsResp(body []byte, key []byte) (resp AuthAddCapsResp, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
-		return
-	}
-
-	return
-}
-
-// ParseAuthDeleteCapsResp parse and validate the auth delete caps resp
-func ParseAuthDeleteCapsResp(body []byte, key []byte) (resp AuthDeleteCapsResp, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
-		return
-	}
-
-	return
-}
-
-// ParseAuthGetCapsResp parse and validate the auth get caps resp
-func ParseAuthGetCapsResp(body []byte, key []byte) (resp AuthGetCapsResp, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getPlaintextFromResp(body, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &resp); err != nil {
-		return
-	}
-
-	return
-}
-
-func ParseAuthResp(body []byte, key []byte) (data interface{}, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = getMessageFromResp(body, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &data); err != nil {
-		return
-	}
-
-	return
-}*/

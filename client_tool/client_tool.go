@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	isTicket bool = false
+	isTicket bool
 	flaginfo flagInfo
 )
 
@@ -159,18 +159,23 @@ func accessAuthServer() {
 		sessionKey []byte
 		err        error
 		message    interface{}
-		data       []byte
-		ts         int64
+		//data       []byte
+		ts int64
 	)
 
 	switch flaginfo.api.request {
 	case "createuser":
 		msg = proto.MsgAuthCreateUserReq
 	case "deleteuser":
+		msg = proto.MsgAuthDeleteUserReq
 	case "getuser":
+		msg = proto.MsgAuthGetUserReq
 	case "addcaps":
+		msg = proto.MsgAuthAddCapsReq
 	case "deletecaps":
+		msg = proto.MsgAuthDeleteCapsReq
 	case "getcaps":
+		msg = proto.MsgAuthGetCapsReq
 	default:
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
 	}
@@ -206,29 +211,61 @@ func accessAuthServer() {
 			},
 		}
 	case "deleteuser":
+		message = proto.AuthDeleteUserReq{
+			APIReq: *apiReq,
+			ID:     dataCFG.GetString("id"),
+		}
 	case "getuser":
+		message = proto.AuthGetUserReq{
+			APIReq: *apiReq,
+			ID:     dataCFG.GetString("id"),
+		}
 	case "addcaps":
+		message = proto.AuthAddCapsReq{
+			APIReq: *apiReq,
+			ID:     dataCFG.GetString("id"),
+			Caps:   []byte(dataCFG.GetString("caps")),
+		}
 	case "deletecaps":
+		message = proto.AuthDeleteCapsReq{
+			APIReq: *apiReq,
+			ID:     dataCFG.GetString("id"),
+		}
 	case "getcaps":
+		message = proto.AuthGetCapsReq{
+			APIReq: *apiReq,
+			ID:     dataCFG.GetString("id"),
+		}
 	default:
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
 
 	body := sendReq(flaginfo.api.url, message)
 
-	if data, err = proto.GetDataFromResp(body, sessionKey); err != nil {
+	var parser *proto.SecRespParser
+	parser, err = proto.CreateSecRespParser(body, sessionKey)
+	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("data--------" + string(data) + "\n")
-	respCFG := config.LoadConfigString(string(data))
+	fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
+	fmt.Printf("%s\n", parser.API.Data)
 
-	fmt.Println(ts)
-	fmt.Printf("++ %d", respCFG.GetInt64("verifier"))
+	if ts+1 != parser.Comm.Verifier {
+		panic("verifier verification failed")
+	}
 
-	/*if ts+1 != respCFG.GetInt64("verifier") {
-		panic(fmt.Errorf("verifier failed [%d] [%d]", ts, respCFG.GetInt64("verifier")))
-	}*/
+	if parser.Comm.Type != msg+1 {
+		panic("msg verification failed")
+	}
+
+	if parser.Comm.ClientID != ticketCFG.GetString("id") {
+		panic("id verification failed")
+	}
+
+	if parser.Comm.ServiceID != proto.AuthServiceID {
+		panic("service id verification failed")
+	}
 
 }
 
