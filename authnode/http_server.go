@@ -66,12 +66,12 @@ func (m *Server) handleFunctions() {
 		http.Handle(proto.GetTopologyView, m.handlerWithInterceptor())
 	*/
 	http.HandleFunc(proto.ClientGetTicket, m.getTicket)
-	http.HandleFunc(proto.AdminCreateUser, m.createUser)
-	http.HandleFunc(proto.AdminDeleteUser, m.deleteUser)
-	http.HandleFunc(proto.AdminGetUser, m.getUser)
-	http.HandleFunc(proto.AdminAddCaps, m.addCaps)
-	http.HandleFunc(proto.AdminDeleteCaps, m.deleteCaps)
-	http.HandleFunc(proto.AdminGetCaps, m.getCaps)
+	http.HandleFunc(proto.AdminCreateUser, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminDeleteUser, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminGetUser, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminAddCaps, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminDeleteCaps, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)
 
 	return
 }

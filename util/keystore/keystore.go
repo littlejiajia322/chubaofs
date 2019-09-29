@@ -32,28 +32,49 @@ func (u *UserInfo) Dump() (d string, err error) {
 		return
 	}
 
-	d = fmt.Sprintf("ID:%s\nKey:%s\nRole:%s\nCaps%s\n", u.ID, u.Key, u.Role, caps.Dump())
+	d = fmt.Sprintf("ID:%s\nKey:%s\nRole:%s\nCaps:%s\n", u.ID, cryptoutil.Base64Encode(u.Key), u.Role, caps.Dump())
+	return
+}
+
+// IsValidID check the validity of ID
+func (u *UserInfo) IsValidID() (err error) {
+	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
+	if !re.MatchString(u.ID) {
+		err = fmt.Errorf("invalid ID [%s]", u.ID)
+		return
+	}
+	return
+}
+
+// IsValidRole check the validity of role
+func (u *UserInfo) IsValidRole() (err error) {
+	if _, ok := roleSet[u.Role]; !ok {
+		err = fmt.Errorf("invalid Role [%s]", u.Role)
+		return
+	}
+	return
+}
+
+// IsValidCaps check the validity of caps
+func (u *UserInfo) IsValidCaps() (err error) {
+	cap := new(caps.Caps)
+	if err = cap.Init(u.Caps); err != nil {
+		err = fmt.Errorf("Invalid caps [%s] %s", u.Caps, err.Error())
+	}
 	return
 }
 
 // IsValidFormat is a valid of UserInfo
-func (u *UserInfo) IsValidFormat() (err error) {
-	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
-	if !re.MatchString(u.ID) {
-		err = fmt.Errorf("ID invalid format [%s]", u.ID)
+func (u *UserInfo) IsValidUserInfo() (err error) {
+	if err = u.IsValidID(); err != nil {
 		return
 	}
-
-	if _, ok := roleSet[u.Role]; !ok {
-		err = fmt.Errorf("Role invalid [%s]", u.Role)
+	if err = u.IsValidRole(); err != nil {
 		return
 	}
-
-	cap := new(caps.Caps)
-	if err = cap.Init(u.Caps); err != nil {
+	if err = u.IsValidCaps(); err != nil {
 		return
 	}
-
 	return
 }
 

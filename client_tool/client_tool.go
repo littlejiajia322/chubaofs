@@ -108,44 +108,45 @@ func genVerifier(key []byte) (v string, ts int64, err error) {
 }
 
 func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
-	var (
-		err error
-		ts  int64
-		//msgResp proto.AuthGetTicketResp
-	)
+	/*
+		var (
+			err error
+			ts  int64
+			//msgResp proto.AuthGetTicketResp
+		)
 
-	// construct request body
-	messageStruct := proto.AuthGetTicketReq{
-		Type:      proto.MsgAuthTicketReq,
-		ClientID:  keyring.ID,
-		ServiceID: proto.AuthServiceID,
-	}
+		// construct request body
+		messageStruct := proto.AuthGetTicketReq{
+			Type:      proto.MsgAuthTicketReq,
+			ClientID:  keyring.ID,
+			ServiceID: proto.AuthServiceID,
+		}
 
-	if messageStruct.Verifier, ts, err = genVerifier([]byte(keyring.Key)); err != nil {
-		panic(err)
-	}
+		if messageStruct.Verifier, ts, err = genVerifier([]byte(keyring.Key)); err != nil {
+			panic(err)
+		}
 
-	body := sendReq(flaginfo.ticket.url, messageStruct)
+		body := sendReq(flaginfo.ticket.url, messageStruct)
 
-	var parser *proto.SecRespParser
-	parser, err = proto.CreateSecRespParser(body, []byte(keyring.Key))
-	if err != nil {
-		panic(err)
-	}
+		var parser *proto.SecRespParser
+		parser, err = proto.CreateSecRespParser(body, []byte(keyring.Key))
+		if err != nil {
+			panic(err)
+		}
 
-	fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
-	fmt.Printf("%s\n", parser.API.Data)
+		fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
+		fmt.Printf("%s\n", parser.API.Data)
 
-	verifyRespComm(parser, proto.MsgAuthTicketReq, keyring.ID, proto.AuthServiceID, ts)
+		verifyRespComm(parser, proto.MsgAuthTicketReq, keyring.ID, proto.AuthServiceID, ts)
 
-	//if msgResp, err = proto.ParseAuthGetTicketResp(body, []byte(keyring.Key)); err != nil {
-	//	panic(err)
-	//}
+		//if msgResp, err = proto.ParseAuthGetTicketResp(body, []byte(keyring.Key)); err != nil {
+		//	panic(err)
+		//}
 
-	ticketfile.Ticket = parser.Ticket.Ticket
-	ticketfile.Key = parser.Ticket.SessionKey
-	ticketfile.ID = keyring.ID
-
+		ticketfile.Ticket = parser.Ticket.Ticket
+		ticketfile.Key = parser.Ticket.SessionKey
+		ticketfile.ID = keyring.ID
+	*/
 	return
 }
 
@@ -168,8 +169,9 @@ func accessAuthServer() {
 		sessionKey []byte
 		err        error
 		message    interface{}
-		//data       []byte
-		ts int64
+		ts         int64
+		resp       proto.AuthAPIAccessResp
+		res        string
 	)
 
 	switch flaginfo.api.request {
@@ -210,41 +212,50 @@ func accessAuthServer() {
 
 	switch flaginfo.api.request {
 	case "createuser":
-		message = proto.AuthCreateUserReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			UserInfo: keystore.UserInfo{
 				ID:   dataCFG.GetString("id"),
-				Key:  []byte(""),
 				Role: dataCFG.GetString("role"),
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
 	case "deleteuser":
-		message = proto.AuthDeleteUserReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			ID:     dataCFG.GetString("id"),
+			UserInfo: keystore.UserInfo{
+				ID: dataCFG.GetString("id"),
+			},
 		}
 	case "getuser":
-		message = proto.AuthGetUserReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			ID:     dataCFG.GetString("id"),
+			UserInfo: keystore.UserInfo{
+				ID: dataCFG.GetString("id"),
+			},
 		}
 	case "addcaps":
-		message = proto.AuthAddCapsReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			ID:     dataCFG.GetString("id"),
-			Caps:   []byte(dataCFG.GetString("caps")),
+			UserInfo: keystore.UserInfo{
+				ID:   dataCFG.GetString("id"),
+				Caps: []byte(dataCFG.GetString("caps")),
+			},
 		}
 	case "deletecaps":
-		message = proto.AuthDeleteCapsReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			ID:     dataCFG.GetString("id"),
-			Caps:   []byte(dataCFG.GetString("caps")),
+			UserInfo: keystore.UserInfo{
+				ID:   dataCFG.GetString("id"),
+				Caps: []byte(dataCFG.GetString("caps")),
+			},
 		}
 	case "getcaps":
-		message = proto.AuthGetCapsReq{
+		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			ID:     dataCFG.GetString("id"),
+			UserInfo: keystore.UserInfo{
+				ID: dataCFG.GetString("id"),
+			},
 		}
 	default:
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
@@ -252,32 +263,35 @@ func accessAuthServer() {
 
 	body := sendReq(flaginfo.api.url, message)
 
-	var parser *proto.SecRespParser
-	parser, err = proto.CreateSecRespParser(body, sessionKey)
-	if err != nil {
+	if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
 		panic(err)
 	}
 
-	verifyRespComm(parser, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+	verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
 
-	fmt.Printf("%d %s %s %d\n", parser.Comm.Type, parser.Comm.ClientID, parser.Comm.ServiceID, parser.Comm.Verifier)
-	fmt.Printf("%s\n", parser.API.Data)
+	if res, err = resp.UserInfo.Dump(); err != nil {
+		panic(err)
+	}
+	fmt.Printf(res + "\n")
+
+	return
+
 }
 
-func verifyRespComm(parser *proto.SecRespParser, msg proto.MsgType, clientID string, serviceID string, ts int64) {
-	if ts+1 != parser.Comm.Verifier {
+func verifyRespComm(apiResp *proto.APIAccessResp, msg proto.MsgType, clientID string, serviceID string, ts int64) {
+	if ts+1 != apiResp.Verifier {
 		panic("verifier verification failed")
 	}
 
-	if parser.Comm.Type != msg+1 {
+	if apiResp.Type != msg+1 {
 		panic("msg verification failed")
 	}
 
-	if parser.Comm.ClientID != clientID {
+	if apiResp.ClientID != clientID {
 		panic("id verification failed")
 	}
 
-	if parser.Comm.ServiceID != serviceID {
+	if apiResp.ServiceID != serviceID {
 		panic("service id verification failed")
 	}
 	return
