@@ -15,7 +15,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/chubaofs/chubaofs/authnode"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/config"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
@@ -84,7 +83,8 @@ func sendReq(u string, data interface{}) (res []byte) {
 	}
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
-	resp, err := http.PostForm(u, url.Values{authnode.ClientMessage: {message}})
+	//resp, err := http.PostForm(u, url.Values{authnode.ClientMessage: {message}})
+	resp, err := http.PostForm(u, url.Values{"Token": {message}})
 	if err != nil {
 		panic(err)
 	}
@@ -262,6 +262,7 @@ func accessAuthServer() {
 	}
 
 	body := sendReq(flaginfo.api.url, message)
+	fmt.Printf("body: " + string(body))
 
 	if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
 		panic(err)

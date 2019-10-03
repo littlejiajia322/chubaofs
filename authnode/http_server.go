@@ -3,13 +3,14 @@ package authnode
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/log"
 )
 
 func (m *Server) startHTTPService() {
-	fmt.Printf("start http\n")
+	fmt.Printf("start http + %s\n", colonSplit+m.port)
 	go func() {
 		m.handleFunctions()
 		if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
@@ -20,58 +21,71 @@ func (m *Server) startHTTPService() {
 	return
 }
 
-/*func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *Server) newReverseProxy() *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{Director: func(request *http.Request) {
+		request.URL.Scheme = "http"
+		request.URL.Host = m.leaderInfo.addr
+	}}
+}
+
+func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.LogInfof("URL[%v],remoteAddr[%v]", r.URL, r.RemoteAddr)
 	switch r.URL.Path {
 	case proto.ClientGetTicket:
-		m.get(w, r)
+		m.getTicket(w, r)
+	case proto.AdminCreateUser:
+		fallthrough
+	case proto.AdminGetUser:
+		fallthrough
+	case proto.AdminDeleteUser:
+		fallthrough
+	case proto.AdminAddCaps:
+		fallthrough
+	case proto.AdminDeleteCaps:
+		fallthrough
+	case proto.AdminGetCaps:
+		m.apiAccessEntry(w, r)
 	default:
-
+		//TODO
 	}
-}*/
+}
 
 func (m *Server) handleFunctions() {
-	/*
-		http.HandleFunc(proto.AdminGetIP, m.getIPAddr)
-		http.Handle(proto.AdminGetCluster, m.handlerWithInterceptor())
-		http.Handle(proto.AdminGetDataPartition, m.handlerWithInterceptor())
-		http.Handle(proto.AdminCreateDataPartition, m.handlerWithInterceptor())
-		http.Handle(proto.AdminLoadDataPartition, m.handlerWithInterceptor())
-		http.Handle(proto.AdminDecommissionDataPartition, m.handlerWithInterceptor())
-		http.Handle(proto.AdminCreateVol, m.handlerWithInterceptor())
-		http.Handle(proto.AdminGetVol, m.handlerWithInterceptor())
-		http.Handle(proto.AdminDeleteVol, m.handlerWithInterceptor())
-		http.Handle(proto.AdminUpdateVol, m.handlerWithInterceptor())
-		http.Handle(proto.AdminClusterFreeze, m.handlerWithInterceptor())
-		http.Handle(proto.AddDataNode, m.handlerWithInterceptor())
-		http.Handle(proto.AddMetaNode, m.handlerWithInterceptor())
-		http.Handle(proto.DecommissionDataNode, m.handlerWithInterceptor())
-		http.Handle(proto.DecommissionDisk, m.handlerWithInterceptor())
-		http.Handle(proto.DecommissionMetaNode, m.handlerWithInterceptor())
-		http.Handle(proto.GetDataNode, m.handlerWithInterceptor())
-		http.Handle(proto.GetMetaNode, m.handlerWithInterceptor())
-		http.Handle(proto.AdminLoadMetaPartition, m.handlerWithInterceptor())
-		http.Handle(proto.AdminDecommissionMetaPartition, m.handlerWithInterceptor())
-		http.Handle(proto.ClientDataPartitions, m.handlerWithInterceptor())
-		http.Handle(proto.ClientVol, m.handlerWithInterceptor())
-		http.Handle(proto.ClientMetaPartitions, m.handlerWithInterceptor())
-		http.Handle(proto.ClientMetaPartition, m.handlerWithInterceptor())
-		http.Handle(proto.GetDataNodeTaskResponse, m.handlerWithInterceptor())
-		http.Handle(proto.GetMetaNodeTaskResponse, m.handlerWithInterceptor())
-		http.Handle(proto.AdminCreateMP, m.handlerWithInterceptor())
-		http.Handle(proto.ClientVolStat, m.handlerWithInterceptor())
-		http.Handle(proto.AddRaftNode, m.handlerWithInterceptor())
-		http.Handle(proto.RemoveRaftNode, m.handlerWithInterceptor())
-		http.Handle(proto.AdminSetMetaNodeThreshold, m.handlerWithInterceptor())
-		http.Handle(proto.GetTopologyView, m.handlerWithInterceptor())
-	*/
-	http.HandleFunc(proto.ClientGetTicket, m.getTicket)
+	/*http.HandleFunc(proto.ClientGetTicket, m.getTicket)
 	http.HandleFunc(proto.AdminCreateUser, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminDeleteUser, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminGetUser, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminAddCaps, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminDeleteCaps, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)*/
+
+	http.Handle(proto.AdminCreateUser, m.handlerWithInterceptor())
+	http.Handle(proto.AdminGetUser, m.handlerWithInterceptor())
 
 	return
+}
+
+func (m *Server) handlerWithInterceptor() http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			if m.partition.IsRaftLeader() {
+				if m.metaReady {
+					m.ServeHTTP(w, r)
+					return
+				}
+				log.LogWarnf("action[handlerWithInterceptor] leader meta has not ready")
+				http.Error(w, m.leaderInfo.addr, http.StatusBadRequest)
+				return
+			}
+			if m.leaderInfo.addr == "" {
+				log.LogErrorf("action[handlerWithInterceptor] no leader,request[%v]", r.URL)
+				http.Error(w, "no leader", http.StatusBadRequest)
+				return
+			}
+			m.proxy(w, r)
+		})
+}
+
+func (m *Server) proxy(w http.ResponseWriter, r *http.Request) {
+	m.reverseProxy.ServeHTTP(w, r)
 }

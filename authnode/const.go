@@ -21,3 +21,22 @@ const (
 	TicketReqDuration = 10
 	TicketDuration    = 24 * 60 * 60
 )
+
+const (
+	defaultInitMetaPartitionCount                = 3
+	defaultMaxInitMetaPartitionCount             = 100
+	defaultMaxMetaPartitionInodeID        uint64 = 1<<63 - 1
+	defaultMetaPartitionInodeIDStep       uint64 = 1 << 24
+	defaultMetaNodeReservedMem            uint64 = 1 << 30
+	runtimeStackBufSize                          = 4096
+	spaceAvailableRate                           = 0.90
+	defaultNodeSetCapacity                       = 18
+	minNumOfRWDataPartitions                     = 10
+	intervalToCheckMissingReplica                = 600
+	intervalToLoadDataPartition                  = 12 * 60 * 60
+	defaultInitDataPartitionCnt                  = 10
+	volExpansionRatio                            = 0.1
+	maxNumberOfDataPartitionsForExpansion        = 100
+	EmptyCrcValue                         uint32 = 4045511210
+	DefaultRackName                              = "default"
+)

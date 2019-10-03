@@ -1,5 +1,5 @@
 {
 	"id": "zeng",
 	"role": "client",
-	"caps": "{\"API\":[\"mount\",\"delete\"]}"
+	"caps": "{\"API\":[\"mount\",\"delete\", \"list\"]}"
 }
