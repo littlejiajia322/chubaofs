@@ -27,7 +27,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		err       error
 		jobj      proto.AuthGetTicketReq
 		ts        int64
-		userInfo  keystore.UserInfo
+		keyInfo   keystore.KeyInfo
 		message   string
 	)
 
@@ -43,12 +43,12 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if userInfo, err = keystore.GetUserInfo(jobj.ClientID); err != nil {
+	if keyInfo, err = keystore.GetKeyInfo(jobj.ClientID); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
-	if ts, err = parseVerifier(jobj.Verifier, userInfo.Key); err != nil {
+	if ts, err = parseVerifier(jobj.Verifier, keyInfo.Key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -69,13 +69,13 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 
 func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	var (
-		plaintext   []byte
-		err         error
-		jobj        proto.AuthAPIAccessReq
-		ticket      cryptoutil.Ticket
-		ts          int64
-		newUserInfo keystore.UserInfo
-		message     string
+		plaintext  []byte
+		err        error
+		jobj       proto.AuthAPIAccessReq
+		ticket     cryptoutil.Ticket
+		ts         int64
+		newKeyInfo *keystore.KeyInfo
+		message    string
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
@@ -91,24 +91,24 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiReq := jobj.APIReq
-	userInfo := jobj.UserInfo
+	keyInfo := jobj.KeyInfo
 
-	if err = userInfo.IsValidID(); err != nil {
+	if err = keyInfo.IsValidID(); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 	}
 
 	switch apiReq.Type {
-	case proto.MsgAuthCreateUserReq:
-		if err = userInfo.IsValidUserInfo(); err != nil {
+	case proto.MsgAuthCreateKeyReq:
+		if err = keyInfo.IsValidKeyInfo(); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		}
-	case proto.MsgAuthDeleteUserReq:
-	case proto.MsgAuthGetUserReq:
+	case proto.MsgAuthDeleteKeyReq:
+	case proto.MsgAuthGetKeyReq:
 	case proto.MsgAuthGetCapsReq:
 	case proto.MsgAuthAddCapsReq:
 		fallthrough
 	case proto.MsgAuthDeleteCapsReq:
-		if err = userInfo.IsValidCaps(); err != nil {
+		if err = keyInfo.IsValidCaps(); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		}
 	default:
@@ -154,12 +154,27 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if newUserInfo, err = MsgType2HandleFunc[apiReq.Type](&userInfo); err != nil {
+	switch apiReq.Type {
+	case proto.MsgAuthCreateKeyReq:
+		newKeyInfo, err = m.handleCreateKey(&keyInfo)
+	case proto.MsgAuthDeleteKeyReq:
+		newKeyInfo, err = m.handleDeleteKey(&keyInfo)
+	case proto.MsgAuthGetKeyReq:
+		newKeyInfo, err = m.handleGetKey(&keyInfo)
+	case proto.MsgAuthGetCapsReq:
+		newKeyInfo, err = m.handleGetCaps(&keyInfo)
+	case proto.MsgAuthAddCapsReq:
+		newKeyInfo, err = m.handleAddCaps(&keyInfo)
+	case proto.MsgAuthDeleteCapsReq:
+		newKeyInfo, err = m.handleDeleteCaps(&keyInfo)
+	}
+
+	if err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthKeyStoreError, Msg: err.Error()})
 		return
 	}
 
-	if message, err = genAuthAPIAccessResp(&apiReq, &newUserInfo, ts, ticket.SessionKey.Key); err != nil {
+	if message, err = genAuthAPIAccessResp(&apiReq, newKeyInfo, ts, ticket.SessionKey.Key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthAPIAccessGenRespError, Msg: err.Error()})
 		return
 	}
@@ -168,68 +183,60 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 
 }
 
-type HandleFunc func(*keystore.UserInfo) (keystore.UserInfo, error)
-
-var MsgType2HandleFunc = map[proto.MsgType]HandleFunc{
-	proto.MsgAuthCreateUserReq: handleCreateUser,
-	proto.MsgAuthDeleteUserReq: handleDeleteUser,
-	proto.MsgAuthGetUserReq:    handleGetUser,
-	proto.MsgAuthAddCapsReq:    handleAddCaps,
-	proto.MsgAuthDeleteCapsReq: handleDeleteCaps,
-	proto.MsgAuthGetCapsReq:    handleGetCaps,
-}
-
-func handleCreateUser(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
-	if res, err = keystore.AddNewUser(userInfo.ID, userInfo); err != nil {
+func (m *Server) handleCreateKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	/*if res, err = keystore.AddNewKey(keyInfo.ID, keyInfo); err != nil {
+		return
+	}*/
+	if res, err = m.cluster.CreateNewKey(keyInfo.ID, keyInfo); err != nil {
 		return
 	}
 	return
 }
 
-func handleDeleteUser(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
-	if res, err = keystore.GetUserInfo(userInfo.ID); err != nil {
+func (m *Server) handleDeleteKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
 		return
 	}
 
-	if err = keystore.DeleteUser(userInfo.ID); err != nil {
+	if err = keystore.DeleteKey(keyInfo.ID); err != nil {
 		return
-	}
+	}*/
 
 	return
 }
 
-func handleGetUser(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
-	if res, err = keystore.GetUserInfo(userInfo.ID); err != nil {
+func (m *Server) handleGetKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
 		return
-	}
+	}*/
 
 	return
 }
 
-func handleAddCaps(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
-	res = *userInfo
-	if res.Caps, err = keystore.AddCaps(userInfo.ID, userInfo.Caps); err != nil {
+func (m *Server) handleAddCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	/*res = *keyInfo
+	if res.Caps, err = keystore.AddCaps(keyInfo.ID, keyInfo.Caps); err != nil {
 		return
-	}
+	}*/
 
 	return
 }
 
-func handleDeleteCaps(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
-	res = *userInfo
-	if res.Caps, err = keystore.DeleteCaps(userInfo.ID, userInfo.Caps); err != nil {
+func (m *Server) handleDeleteCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	/*res = *keyInfo
+	if res.Caps, err = keystore.DeleteCaps(keyInfo.ID, keyInfo.Caps); err != nil {
 		return
-	}
+	}*/
 
 	return
 }
 
-func handleGetCaps(userInfo *keystore.UserInfo) (res keystore.UserInfo, err error) {
+func (m *Server) handleGetCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
 
-	if res, err = keystore.GetUserInfo(userInfo.ID); err != nil {
+	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
 		return
 	}
-	res.Key = []byte("")
+	res.Key = []byte("")*/
 	return
 }
 
@@ -353,7 +360,7 @@ func validateGetTicketReqFormat(req *proto.AuthGetTicketReq) (err error) {
 	return
 }
 
-func genAuthAPIAccessResp(req *proto.APIAccessReq, userInfo *keystore.UserInfo, ts int64, key []byte) (message string, err error) {
+func genAuthAPIAccessResp(req *proto.APIAccessReq, keyInfo *keystore.KeyInfo, ts int64, key []byte) (message string, err error) {
 	var (
 		jresp []byte
 		resp  proto.AuthAPIAccessResp
@@ -364,7 +371,7 @@ func genAuthAPIAccessResp(req *proto.APIAccessReq, userInfo *keystore.UserInfo, 
 	resp.APIResp.ServiceID = req.ServiceID
 	resp.APIResp.Verifier = ts + 1 // increase ts by one for client verify server
 
-	resp.UserInfo = *userInfo
+	resp.KeyInfo = *keyInfo
 
 	if jresp, err = json.Marshal(resp); err != nil {
 		err = fmt.Errorf("json marshal for response failed %s", err.Error())

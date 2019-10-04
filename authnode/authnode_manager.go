@@ -35,13 +35,15 @@ func (m *Server) handleLeaderChange(leader uint64) {
 	oldLeaderAddr := m.leaderInfo.addr
 	m.leaderInfo.addr = AddrDatabase[leader]
 	log.LogWarnf("action[handleLeaderChange] change leader to [%v] ", m.leaderInfo.addr)
-	m.reverseProxy = m.newReverseProxy()
+	m.reverseProxy = m.newReverseProxy() // TODO why no lock?
 
 	if m.id == leader {
 		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",
 		//	m.clusterName, m.leaderInfo.addr))
 		if oldLeaderAddr != m.leaderInfo.addr {
-			m.loadMetadata()
+			if err := m.cluster.loadKeystore(); err != nil {
+				panic(err)
+			}
 			m.metaReady = true
 		}
 		//m.cluster.checkDataNodeHeartbeat()
@@ -49,8 +51,8 @@ func (m *Server) handleLeaderChange(leader uint64) {
 	} else {
 		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",
 		//	m.clusterName, m.leaderInfo.addr))
-		m.clearMetadata()
-		m.metaReady = false
+		m.cluster.clearKeystore()
+		m.metaReady = false // TODO lock? swith?
 	}
 }
 

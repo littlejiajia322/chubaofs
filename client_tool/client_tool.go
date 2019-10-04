@@ -175,12 +175,12 @@ func accessAuthServer() {
 	)
 
 	switch flaginfo.api.request {
-	case "createuser":
-		msg = proto.MsgAuthCreateUserReq
-	case "deleteuser":
-		msg = proto.MsgAuthDeleteUserReq
-	case "getuser":
-		msg = proto.MsgAuthGetUserReq
+	case "createkey":
+		msg = proto.MsgAuthCreateKeyReq
+	case "deletekey":
+		msg = proto.MsgAuthDeleteKeyReq
+	case "getkey":
+		msg = proto.MsgAuthGetKeyReq
 	case "addcaps":
 		msg = proto.MsgAuthAddCapsReq
 	case "deletecaps":
@@ -211,33 +211,33 @@ func accessAuthServer() {
 	dataCFG := config.LoadConfigFile(flaginfo.api.data)
 
 	switch flaginfo.api.request {
-	case "createuser":
+	case "createkey":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID:   dataCFG.GetString("id"),
 				Role: dataCFG.GetString("role"),
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	case "deleteuser":
+	case "deletekey":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID: dataCFG.GetString("id"),
 			},
 		}
-	case "getuser":
+	case "getkey":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID: dataCFG.GetString("id"),
 			},
 		}
 	case "addcaps":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID:   dataCFG.GetString("id"),
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
@@ -245,7 +245,7 @@ func accessAuthServer() {
 	case "deletecaps":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID:   dataCFG.GetString("id"),
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
@@ -253,7 +253,7 @@ func accessAuthServer() {
 	case "getcaps":
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
-			UserInfo: keystore.UserInfo{
+			KeyInfo: keystore.KeyInfo{
 				ID: dataCFG.GetString("id"),
 			},
 		}
@@ -262,7 +262,7 @@ func accessAuthServer() {
 	}
 
 	body := sendReq(flaginfo.api.url, message)
-	fmt.Printf("body: " + string(body))
+	//fmt.Printf("body: " + string(body))
 
 	if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
 		panic(err)
@@ -270,7 +270,7 @@ func accessAuthServer() {
 
 	verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
 
-	if res, err = resp.UserInfo.Dump(); err != nil {
+	if res, err = resp.KeyInfo.Dump(); err != nil {
 		panic(err)
 	}
 	fmt.Printf(res + "\n")

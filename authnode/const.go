@@ -40,3 +40,14 @@ const (
 	EmptyCrcValue                         uint32 = 4045511210
 	DefaultRackName                              = "default"
 )
+
+const (
+	opSyncAddKey    uint32 = 0x01
+	opSyncDeleteKey uint32 = 0x02
+)
+
+const (
+	keySeparator = "#"
+	keyAcronym   = "client"
+	ksPrefix     = keySeparator + keyAcronym + keySeparator
+)

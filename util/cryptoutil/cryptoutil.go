@@ -89,7 +89,10 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 }
 
 // GenMasterKey generate a master key according to pair {key and data}
-func GenMasterKey(key []byte, data []byte) (masterKey []byte) {
+func GenMasterKey(key []byte, ts int64, id string) (masterKey []byte) {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(ts))
+	data := append(b, []byte(id)...)
 	masterKey = genKey(key, data)
 	return
 }

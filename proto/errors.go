@@ -59,6 +59,8 @@ var (
 	ErrVolAuthKeyNotMatch              = errors.New("client and server auth key do not match")
 	ErrAuthKeyStoreError               = errors.New("auth keystore error")
 	ErrAuthAPIAccessGenRespError       = errors.New("auth API access response error")
+	ErrKeyNotExists                    = errors.New("key not exists")
+	ErrDuplicateKey                    = errors.New("duplicate key")
 )
 
 // http response error code and error message definitions

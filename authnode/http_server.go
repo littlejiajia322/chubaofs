@@ -33,11 +33,11 @@ func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case proto.ClientGetTicket:
 		m.getTicket(w, r)
-	case proto.AdminCreateUser:
+	case proto.AdminCreateKey:
 		fallthrough
-	case proto.AdminGetUser:
+	case proto.AdminGetKey:
 		fallthrough
-	case proto.AdminDeleteUser:
+	case proto.AdminDeleteKey:
 		fallthrough
 	case proto.AdminAddCaps:
 		fallthrough
@@ -52,15 +52,15 @@ func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (m *Server) handleFunctions() {
 	/*http.HandleFunc(proto.ClientGetTicket, m.getTicket)
-	http.HandleFunc(proto.AdminCreateUser, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminDeleteUser, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminGetUser, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminCreateKey, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminDeleteKey, m.apiAccessEntry)
+	http.HandleFunc(proto.AdminGetKey, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminAddCaps, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminDeleteCaps, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)*/
 
-	http.Handle(proto.AdminCreateUser, m.handlerWithInterceptor())
-	http.Handle(proto.AdminGetUser, m.handlerWithInterceptor())
+	http.Handle(proto.AdminCreateKey, m.handlerWithInterceptor())
+	http.Handle(proto.AdminGetKey, m.handlerWithInterceptor())
 
 	return
 }

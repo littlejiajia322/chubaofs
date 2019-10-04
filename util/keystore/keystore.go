@@ -14,16 +14,17 @@ var roleSet = map[string]bool{
 	"service": true,
 }
 
-// UserInfo defines the user info structure in key store
-type UserInfo struct {
+// KeyInfo defines the key info structure in key store
+type KeyInfo struct {
 	ID   string `json:"id"`
 	Key  []byte `json:"key"`
+	Ts   int64  `json:"create_ts"`
 	Role string `json:"role"`
 	Caps []byte `json:"caps"`
 }
 
-// Dump dump UserInfo
-func (u *UserInfo) Dump() (d string, err error) {
+// Dump dump KeyInfo
+func (u *KeyInfo) Dump() (d string, err error) {
 	var (
 		caps caps.Caps
 	)
@@ -37,7 +38,7 @@ func (u *UserInfo) Dump() (d string, err error) {
 }
 
 // IsValidID check the validity of ID
-func (u *UserInfo) IsValidID() (err error) {
+func (u *KeyInfo) IsValidID() (err error) {
 	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
 	if !re.MatchString(u.ID) {
 		err = fmt.Errorf("invalid ID [%s]", u.ID)
@@ -47,7 +48,7 @@ func (u *UserInfo) IsValidID() (err error) {
 }
 
 // IsValidRole check the validity of role
-func (u *UserInfo) IsValidRole() (err error) {
+func (u *KeyInfo) IsValidRole() (err error) {
 	if _, ok := roleSet[u.Role]; !ok {
 		err = fmt.Errorf("invalid Role [%s]", u.Role)
 		return
@@ -56,7 +57,7 @@ func (u *UserInfo) IsValidRole() (err error) {
 }
 
 // IsValidCaps check the validity of caps
-func (u *UserInfo) IsValidCaps() (err error) {
+func (u *KeyInfo) IsValidCaps() (err error) {
 	cap := new(caps.Caps)
 	if err = cap.Init(u.Caps); err != nil {
 		err = fmt.Errorf("Invalid caps [%s] %s", u.Caps, err.Error())
@@ -64,8 +65,8 @@ func (u *UserInfo) IsValidCaps() (err error) {
 	return
 }
 
-// IsValidFormat is a valid of UserInfo
-func (u *UserInfo) IsValidUserInfo() (err error) {
+// IsValidKeyInfo is a valid of KeyInfo
+func (u *KeyInfo) IsValidKeyInfo() (err error) {
 	if err = u.IsValidID(); err != nil {
 		return
 	}
@@ -79,12 +80,12 @@ func (u *UserInfo) IsValidUserInfo() (err error) {
 }
 
 type keystore struct {
-	Content map[string]UserInfo
+	Content map[string]KeyInfo
 }
 
 // Keystore in memory storage
 var Keystore = keystore{
-	Content: map[string]UserInfo{
+	Content: map[string]KeyInfo{
 		"client1": {
 			ID:   "client1",
 			Key:  []byte("11111111111111111111111111111111"),
@@ -106,7 +107,7 @@ var Keystore = keystore{
 	},
 }
 
-func (m *keystore) getValue(id string) (info UserInfo, err error) {
+func (m *keystore) getValue(id string) (info KeyInfo, err error) {
 	if _, ok := m.Content[id]; !ok {
 		err = fmt.Errorf("ID [%s] is not existed in system", id)
 		return
@@ -115,7 +116,7 @@ func (m *keystore) getValue(id string) (info UserInfo, err error) {
 	return
 }
 
-func (m *keystore) addValue(id string, info *UserInfo) (err error) {
+func (m *keystore) addValue(id string, info *KeyInfo) (err error) {
 	if _, ok := m.Content[id]; ok {
 		err = fmt.Errorf("ID [%s] is existed in system", id)
 		return
@@ -138,7 +139,7 @@ func (m *keystore) updateCaps(id string, caps []byte) (err error) {
 		err = fmt.Errorf("ID [%s] is not existed in system", id)
 		return
 	}
-	Keystore.Content[id] = UserInfo{
+	Keystore.Content[id] = KeyInfo{
 		Key:  Keystore.Content[id].Key,
 		Role: Keystore.Content[id].Role,
 		Caps: caps,
@@ -149,57 +150,57 @@ func (m *keystore) updateCaps(id string, caps []byte) (err error) {
 // AuthMasterKey defines the Master key for Auth Service
 var AuthMasterKey = []byte("44444444444444444444444444444444")
 
-// GetUserInfo return the key according to user ID from keystore
-func GetUserInfo(id string) (userInfo UserInfo, err error) {
-	if userInfo, err = Keystore.getValue(id); err != nil {
+// GetKeyInfo return the key according to key ID from keystore
+func GetKeyInfo(id string) (KeyInfo KeyInfo, err error) {
+	if KeyInfo, err = Keystore.getValue(id); err != nil {
 		return
 	}
 	return
 }
 
-// GetMasterKey return the master key from keystore according to user ID
+// GetMasterKey return the master key from keystore according to key ID
 func GetMasterKey(id string) (key []byte, err error) {
 	var (
-		userInfo UserInfo
+		KeyInfo KeyInfo
 	)
-	if userInfo, err = Keystore.getValue(id); err != nil {
+	if KeyInfo, err = Keystore.getValue(id); err != nil {
 		return
 	}
-	key = userInfo.Key
+	key = KeyInfo.Key
 	return
 }
 
-// GetCaps return the capbility from keystore according to user ID
+// GetCaps return the capbility from keystore according to key ID
 func GetCaps(id string) (caps []byte, err error) {
 	var (
-		userInfo UserInfo
+		KeyInfo KeyInfo
 	)
-	if userInfo, err = Keystore.getValue(id); err != nil {
+	if KeyInfo, err = Keystore.getValue(id); err != nil {
 		return
 	}
-	caps = userInfo.Caps
+	caps = KeyInfo.Caps
 	return
 }
 
-// AddNewUser add a new user into keystore
-func AddNewUser(id string, userInfo *UserInfo) (res UserInfo, err error) {
-	res = *userInfo
-	res.Key = genClientMasterKey(userInfo.ID)
+// AddNewKey add a new key into keystore
+func AddNewKey(id string, KeyInfo *KeyInfo) (res KeyInfo, err error) {
+	/*res = *KeyInfo
+	res.Key = genClientMasterKey(KeyInfo.ID)
 	if err = Keystore.addValue(id, &res); err != nil {
 		return
-	}
+	}*/
 	return
 }
 
-// DeleteUser delete an user in Keystore
-func DeleteUser(id string) (err error) {
+// DeleteKey delete an key in Keystore
+func DeleteKey(id string) (err error) {
 	if err = Keystore.deleteValue(id); err != nil {
 		return
 	}
 	return
 }
 
-// AddCaps add caps for existing user
+// AddCaps add caps for existing key
 func AddCaps(id string, add []byte) (newCaps []byte, err error) {
 	var (
 		cur []byte
@@ -226,7 +227,7 @@ func AddCaps(id string, add []byte) (newCaps []byte, err error) {
 	return
 }
 
-// DeleteCaps add caps for existing user
+// DeleteCaps add caps for existing key
 func DeleteCaps(id string, del []byte) (newCaps []byte, err error) {
 	var (
 		cur []byte
@@ -253,8 +254,8 @@ func DeleteCaps(id string, del []byte) (newCaps []byte, err error) {
 	return
 }
 
-func genClientMasterKey(name string) (key []byte) {
+/*func genClientMasterKey(name string) (key []byte) {
 	// generate client master key according to ID and AuthMasterkey
 	key = cryptoutil.GenMasterKey([]byte(AuthMasterKey), []byte(name))
 	return
-}
+}*/

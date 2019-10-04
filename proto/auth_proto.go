@@ -38,9 +38,9 @@ const (
 	ClientGetTicket = "/client/getticket"
 
 	// Admin APIs
-	AdminCreateUser = "/admin/createuser"
-	AdminDeleteUser = "/admin/deleteuser"
-	AdminGetUser    = "/admin/getuser"
+	AdminCreateKey  = "/admin/createkey"
+	AdminDeleteKey  = "/admin/deletekey"
+	AdminGetKey     = "/admin/getkey"
 	AdminAddCaps    = "/admin/addcaps"
 	AdminDeleteCaps = "/admin/deletecaps"
 	AdminGetCaps    = "/admin/getcaps"
@@ -95,23 +95,23 @@ const (
 	// MsgDataTicketResp response type for a datanode ticket
 	MsgDataTicketResp MsgType = MsgAuthBase + 0x40001
 
-	// MsgAuthCreateUserReq request type for authnode add user
-	MsgAuthCreateUserReq MsgType = MsgAuthBase + 0x51000
+	// MsgAuthCreateKeyReq request type for authnode add key
+	MsgAuthCreateKeyReq MsgType = MsgAuthBase + 0x51000
 
-	// MsgAuthCreateUserResp response type for authnode add user
-	MsgAuthCreateUserResp MsgType = MsgAuthBase + 0x51001
+	// MsgAuthCreateKeyResp response type for authnode add key
+	MsgAuthCreateKeyResp MsgType = MsgAuthBase + 0x51001
 
-	// MsgAuthDeleteUserReq request type for authnode delete user
-	MsgAuthDeleteUserReq MsgType = MsgAuthBase + 0x52000
+	// MsgAuthDeleteKeyReq request type for authnode delete key
+	MsgAuthDeleteKeyReq MsgType = MsgAuthBase + 0x52000
 
-	// MsgAuthDeleteUserResp response type for authnode delete user
-	MsgAuthDeleteUserResp MsgType = MsgAuthBase + 0x52001
+	// MsgAuthDeleteKeyResp response type for authnode delete key
+	MsgAuthDeleteKeyResp MsgType = MsgAuthBase + 0x52001
 
-	// MsgAuthGetUserReq request type for authnode get user info
-	MsgAuthGetUserReq MsgType = MsgAuthBase + 0x53000
+	// MsgAuthGetKeyReq request type for authnode get key info
+	MsgAuthGetKeyReq MsgType = MsgAuthBase + 0x53000
 
-	// MsgAuthGetUserResp response type for authnode get user info
-	MsgAuthGetUserResp MsgType = MsgAuthBase + 0x53001
+	// MsgAuthGetKeyResp response type for authnode get key info
+	MsgAuthGetKeyResp MsgType = MsgAuthBase + 0x53001
 
 	// MsgAuthAddCapsReq request type for authnode add caps
 	MsgAuthAddCapsReq MsgType = MsgAuthBase + 0x54000
@@ -145,10 +145,11 @@ type HTTPAuthReply struct {
 	Data interface{} `json:"data"`
 }
 
+// MsgType2ResourceMap define the mapping from message type to resource
 var MsgType2ResourceMap = map[MsgType]string{
-	MsgAuthCreateUserReq: "createuser",
-	MsgAuthDeleteUserReq: "deleteuser",
-	MsgAuthGetUserReq:    "getuser",
+	MsgAuthCreateKeyReq:  "createkey",
+	MsgAuthDeleteKeyReq:  "deletekey",
+	MsgAuthGetKeyReq:     "getkey",
 	MsgAuthAddCapsReq:    "addcaps",
 	MsgAuthDeleteCapsReq: "deletecaps",
 	MsgAuthGetCapsReq:    "getcaps",
@@ -197,14 +198,14 @@ type APIAccessResp struct {
 
 // AuthAPIAccessReq defines Auth API request
 type AuthAPIAccessReq struct {
-	APIReq   APIAccessReq      `json:"api_req"`
-	UserInfo keystore.UserInfo `json:"user_info"`
+	APIReq  APIAccessReq     `json:"api_req"`
+	KeyInfo keystore.KeyInfo `json:"key_info"`
 }
 
-// AuthCreateUserResp defines the respose for creating an user in authnode
+// AuthAPIAccessResp defines the respose for creating an key in authnode
 type AuthAPIAccessResp struct {
-	APIResp  APIAccessResp     `json:"api_resp"`
-	UserInfo keystore.UserInfo `json:"user_info"`
+	APIResp APIAccessResp    `json:"api_resp"`
+	KeyInfo keystore.KeyInfo `json:"key_info"`
 }
 
 // IsValidServiceID determine the validity of a serviceID

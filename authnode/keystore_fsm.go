@@ -96,44 +96,30 @@ func (mf *KeystoreFsm) restoreApplied() {
 
 // Apply implements the interface of raft.StateMachine
 func (mf *KeystoreFsm) Apply(command []byte, index uint64) (resp interface{}, err error) {
-	/*
-		cmd := new(RaftCmd)
-		if err = cmd.Unmarshal(command); err != nil {
-			log.LogErrorf("action[fsmApply],unmarshal data:%v, err:%v", command, err.Error())
+	cmd := new(RaftCmd)
+	if err = cmd.Unmarshal(command); err != nil {
+		log.LogErrorf("action[fsmApply],unmarshal data:%v, err:%v", command, err.Error())
+		panic(err)
+	}
+	log.LogInfof("action[fsmApply],cmd.op[%v],cmd.K[%v],cmd.V[%v]", cmd.Op, cmd.K, string(cmd.V))
+	cmdMap := make(map[string][]byte)
+	cmdMap[applied] = []byte(strconv.FormatUint(uint64(index), 10))
+
+	switch cmd.Op {
+	case opSyncDeleteKey:
+		if err = mf.delKeyAndPutIndex(cmd.K, cmdMap); err != nil {
 			panic(err)
 		}
-		log.LogInfof("action[fsmApply],cmd.op[%v],cmd.K[%v],cmd.V[%v]", cmd.Op, cmd.K, string(cmd.V))
-		cmdMap := make(map[string][]byte)
-		if cmd.Op != opSyncBatchPut {
-			cmdMap[cmd.K] = cmd.V
-			cmdMap[applied] = []byte(strconv.FormatUint(uint64(index), 10))
-		} else {
-			nestedCmdMap := make(map[string]*RaftCmd)
-			if err = json.Unmarshal(cmd.V, &nestedCmdMap); err != nil {
-				log.LogErrorf("action[fsmApply],unmarshal nested cmd data:%v, err:%v", command, err.Error())
-				panic(err)
-			}
-			for cmdK, cmd := range nestedCmdMap {
-				log.LogInfof("action[fsmApply],cmd.op[%v],cmd.K[%v],cmd.V[%v]", cmd.Op, cmd.K, string(cmd.V))
-				cmdMap[cmdK] = cmd.V
-			}
-			cmdMap[applied] = []byte(strconv.FormatUint(uint64(index), 10))
+	default:
+		if err = mf.batchPut(cmdMap); err != nil {
+			panic(err)
 		}
-		switch cmd.Op {
-		case opSyncDeleteDataNode, opSyncDeleteMetaNode, opSyncDeleteVol, opSyncDeleteDataPartition, opSyncDeleteMetaPartition:
-			if err = mf.delKeyAndPutIndex(cmd.K, cmdMap); err != nil {
-				panic(err)
-			}
-		default:
-			if err = mf.batchPut(cmdMap); err != nil {
-				panic(err)
-			}
-		}
-		mf.applied = index
-		if mf.applied > 0 && (mf.applied%mf.retainLogs) == 0 {
-			log.LogWarnf("action[Apply],truncate raft log,retainLogs[%v],index[%v]", mf.retainLogs, mf.applied)
-			mf.rs.Truncate(GroupID, mf.applied)
-		}*/
+	}
+	mf.applied = index
+	if mf.applied > 0 && (mf.applied%mf.retainLogs) == 0 {
+		log.LogWarnf("action[Apply],truncate raft log,retainLogs[%v],index[%v]", mf.retainLogs, mf.applied)
+		mf.rs.Truncate(GroupID, mf.applied)
+	}
 	return
 }
 

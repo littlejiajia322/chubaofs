@@ -1,9 +1,16 @@
 package authnode
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
+	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/raftstore"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
+	"github.com/chubaofs/chubaofs/util/errors"
+	"github.com/chubaofs/chubaofs/util/keystore"
+	"github.com/chubaofs/chubaofs/util/log"
 )
 
 // Cluster stores all the cluster-level information.
@@ -29,6 +36,10 @@ type Cluster struct {
 	DisableAutoAllocate bool
 	fsm                 *KeystoreFsm
 	partition           raftstore.Partition
+
+	keystore       map[string]*keystore.KeyInfo
+	ksMutex        sync.RWMutex // keystore mutex
+	createKeyMutex sync.RWMutex // create key mutex
 }
 
 func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition raftstore.Partition, cfg *clusterConfig) (c *Cluster) {
@@ -43,6 +54,7 @@ func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition
 	c.metaNodeStatInfo = new(nodeStatInfo)*/
 	c.fsm = fsm
 	c.partition = partition
+	c.keystore = make(map[string]*keystore.KeyInfo, 0)
 	//c.idAlloc = newIDAllocator(c.fsm.store, c.partition)
 	return
 }
@@ -89,4 +101,45 @@ func (c *Cluster) scheduleToCheckHeartbeat() {
 func (c *Cluster) checkLeaderAddr() {
 	leaderID, _ := c.partition.LeaderTerm()
 	c.leaderInfo.addr = AddrDatabase[leaderID]
+}
+
+func (c *Cluster) putKey(k *keystore.KeyInfo) {
+	c.ksMutex.Lock()
+	defer c.ksMutex.Unlock()
+	if _, ok := c.keystore[k.ID]; !ok {
+		c.keystore[k.ID] = k
+	}
+}
+
+func (c *Cluster) getKey(id string) (u *keystore.KeyInfo, err error) {
+	c.ksMutex.RLock()
+	defer c.ksMutex.RUnlock()
+	u, ok := c.keystore[id]
+	if !ok {
+		err = proto.ErrKeyNotExists
+	}
+	return
+}
+
+// CreateNewKey create a new client to the keystore
+func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
+	c.createKeyMutex.Lock()
+	defer c.createKeyMutex.Unlock()
+	if _, err = c.getKey(id); err == nil {
+		err = proto.ErrDuplicateKey
+		goto errHandler
+	}
+	keyInfo.Ts = time.Now().Unix()
+	keyInfo.Key = cryptoutil.GenMasterKey([]byte(keystore.AuthMasterKey), keyInfo.Ts, id)
+	if err = c.syncAddKey(keyInfo); err != nil {
+		goto errHandler
+	}
+	res = keyInfo
+	c.putKey(keyInfo)
+	return
+errHandler:
+	err = fmt.Errorf("action[CreateNewKey], clusterID[%v] ID:%v, err:%v ", c.Name, keyInfo.Key, err.Error())
+	log.LogError(errors.Stack(err))
+	//Warn(c.Name, err.Error())
+	return
 }
