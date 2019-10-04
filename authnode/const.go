@@ -42,8 +42,12 @@ const (
 )
 
 const (
-	opSyncAddKey    uint32 = 0x01
-	opSyncDeleteKey uint32 = 0x02
+	opSyncAddKey     uint32 = 0x01
+	opSyncDeleteKey  uint32 = 0x02
+	opSyncGetKey     uint32 = 0x03
+	opSyncAddCaps    uint32 = 0x04
+	opSyncDeleteCaps uint32 = 0x05
+	opSyncGetCaps    uint32 = 0x06
 )
 
 const (

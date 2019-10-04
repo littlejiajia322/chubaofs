@@ -185,8 +185,8 @@ func accessAuthServer() {
 		msg = proto.MsgAuthAddCapsReq
 	case "deletecaps":
 		msg = proto.MsgAuthDeleteCapsReq
-	case "getcaps":
-		msg = proto.MsgAuthGetCapsReq
+	//case "getcaps":
+	//	msg = proto.MsgAuthGetCapsReq
 	default:
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
 	}
@@ -250,19 +250,19 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	case "getcaps":
-		message = proto.AuthAPIAccessReq{
-			APIReq: *apiReq,
-			KeyInfo: keystore.KeyInfo{
-				ID: dataCFG.GetString("id"),
-			},
-		}
+	/*case "getcaps":
+	message = proto.AuthAPIAccessReq{
+		APIReq: *apiReq,
+		KeyInfo: keystore.KeyInfo{
+			ID: dataCFG.GetString("id"),
+		},
+	}*/
 	default:
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
 
 	body := sendReq(flaginfo.api.url, message)
-	//fmt.Printf("body: " + string(body))
+	fmt.Printf("\nbody: " + string(body) + "\n")
 
 	if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
 		panic(err)

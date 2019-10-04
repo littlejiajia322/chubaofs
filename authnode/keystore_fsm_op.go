@@ -95,13 +95,17 @@ func (c *Cluster) syncAddKey(keyInfo *keystore.KeyInfo) (err error) {
 	return c.syncPutKeyInfo(opSyncAddKey, keyInfo)
 }
 
-/*func (c *Cluster) syncUpdateVol(vol *Vol) (err error) {
-	return c.syncPutVolInfo(opSyncUpdateVol, vol)
+func (c *Cluster) syncAddCaps(keyInfo *keystore.KeyInfo) (err error) {
+	return c.syncPutKeyInfo(opSyncAddCaps, keyInfo)
 }
 
-func (c *Cluster) syncDeleteVol(vol *Vol) (err error) {
-	return c.syncPutVolInfo(opSyncDeleteVol, vol)
-}*/
+func (c *Cluster) syncDeleteKey(keyInfo *keystore.KeyInfo) (err error) {
+	return c.syncPutKeyInfo(opSyncDeleteKey, keyInfo)
+}
+
+func (c *Cluster) syncDeleteCaps(keyInfo *keystore.KeyInfo) (err error) {
+	return c.syncPutKeyInfo(opSyncDeleteCaps, keyInfo)
+}
 
 func (c *Cluster) syncPutKeyInfo(opType uint32, keyInfo *keystore.KeyInfo) (err error) {
 	keydata := new(RaftCmd)

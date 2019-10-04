@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	applied = "applied"
+	applied = "applied" //TODO meaning?
 )
 
 type raftLeaderChangeHandler func(leader uint64)
@@ -103,6 +103,7 @@ func (mf *KeystoreFsm) Apply(command []byte, index uint64) (resp interface{}, er
 	}
 	log.LogInfof("action[fsmApply],cmd.op[%v],cmd.K[%v],cmd.V[%v]", cmd.Op, cmd.K, string(cmd.V))
 	cmdMap := make(map[string][]byte)
+	cmdMap[cmd.K] = cmd.V
 	cmdMap[applied] = []byte(strconv.FormatUint(uint64(index), 10))
 
 	switch cmd.Op {

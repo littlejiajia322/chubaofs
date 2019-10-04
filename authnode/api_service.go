@@ -104,7 +104,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		}
 	case proto.MsgAuthDeleteKeyReq:
 	case proto.MsgAuthGetKeyReq:
-	case proto.MsgAuthGetCapsReq:
+	//case proto.MsgAuthGetCapsReq:
 	case proto.MsgAuthAddCapsReq:
 		fallthrough
 	case proto.MsgAuthDeleteCapsReq:
@@ -161,8 +161,8 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		newKeyInfo, err = m.handleDeleteKey(&keyInfo)
 	case proto.MsgAuthGetKeyReq:
 		newKeyInfo, err = m.handleGetKey(&keyInfo)
-	case proto.MsgAuthGetCapsReq:
-		newKeyInfo, err = m.handleGetCaps(&keyInfo)
+	//case proto.MsgAuthGetCapsReq:
+	//newKeyInfo, err = m.handleGetCaps(&keyInfo)
 	case proto.MsgAuthAddCapsReq:
 		newKeyInfo, err = m.handleAddCaps(&keyInfo)
 	case proto.MsgAuthDeleteCapsReq:
@@ -184,9 +184,6 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Server) handleCreateKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	/*if res, err = keystore.AddNewKey(keyInfo.ID, keyInfo); err != nil {
-		return
-	}*/
 	if res, err = m.cluster.CreateNewKey(keyInfo.ID, keyInfo); err != nil {
 		return
 	}
@@ -194,49 +191,30 @@ func (m *Server) handleCreateKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyIn
 }
 
 func (m *Server) handleDeleteKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
+	if res, err = m.cluster.DeleteKey(keyInfo.ID); err != nil {
 		return
 	}
-
-	if err = keystore.DeleteKey(keyInfo.ID); err != nil {
-		return
-	}*/
-
 	return
 }
 
 func (m *Server) handleGetKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
+	if res, err = m.cluster.GetKey(keyInfo.ID); err != nil {
 		return
-	}*/
-
+	}
 	return
 }
 
 func (m *Server) handleAddCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	/*res = *keyInfo
-	if res.Caps, err = keystore.AddCaps(keyInfo.ID, keyInfo.Caps); err != nil {
+	if res, err = m.cluster.AddCaps(keyInfo.ID, keyInfo); err != nil {
 		return
-	}*/
-
+	}
 	return
 }
 
 func (m *Server) handleDeleteCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	/*res = *keyInfo
-	if res.Caps, err = keystore.DeleteCaps(keyInfo.ID, keyInfo.Caps); err != nil {
-		return
-	}*/
-
-	return
-}
-
-func (m *Server) handleGetCaps(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-
-	/*if res, err = keystore.GetKeyInfo(keyInfo.ID); err != nil {
+	if res, err = m.cluster.DeleteCaps(keyInfo.ID, keyInfo); err != nil {
 		return
 	}
-	res.Key = []byte("")*/
 	return
 }
 
