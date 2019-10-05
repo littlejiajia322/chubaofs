@@ -59,7 +59,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO check whether jobj.ip == the IP from HTTP request
-	if message, err = genGetTicketAuthResp(&jobj, ts, r); err != nil {
+	if message, err = m.genGetTicketAuthResp(&jobj, ts, r); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 	}
 
@@ -238,25 +238,37 @@ func (m *Server) extractClientReqInfo(r *http.Request) (plaintext []byte, err er
 	return
 }
 
-func genTicket(serviceID string, IP string, caps []byte) (ticket cryptoutil.Ticket) {
+func (m *Server) genTicket(key []byte, serviceID string, IP string, caps []byte) (ticket cryptoutil.Ticket) {
 	currentTime := time.Now().Unix()
 	ticket.Version = TicketVersion
 	ticket.ServiceID = serviceID
 	ticket.SessionKey.Ctime = currentTime
-	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS([]byte(keystore.AuthMasterKey))
+	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS(key)
 	ticket.Exp = currentTime + TicketDuration
 	ticket.IP = IP
 	ticket.Caps = caps
 	return
 }
 
-func genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *http.Request) (message string, err error) {
+func (m *Server) getServiceKey(serviceID string) (key []byte, err error) {
+	if serviceID == proto.AuthServiceID {
+		key = keystore.AuthMasterKey
+	} else {
+		if key, err = keystore.GetMasterKey(serviceID); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *http.Request) (message string, err error) {
 	var (
-		jticket   []byte
-		jresp     []byte
-		resp      proto.AuthGetTicketResp
-		masterKey []byte
-		caps      []byte
+		jticket    []byte
+		jresp      []byte
+		resp       proto.AuthGetTicketResp
+		serviceKey []byte
+		clientKey  []byte
+		caps       []byte
 	)
 
 	resp.Type = req.Type + 1
@@ -267,24 +279,21 @@ func genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *http.Request
 	if caps, err = keystore.GetCaps(resp.ClientID); err != nil {
 		return
 	}
-	ticket := genTicket(resp.ServiceID, iputil.RealIP(r), caps)
+	// Use service key to encrypt ticket
+	if serviceKey, err = m.getServiceKey(req.ServiceID); err != nil {
+		return
+	}
+
+	ticket := m.genTicket(serviceKey, resp.ServiceID, iputil.RealIP(r), caps)
 	resp.SessionKey = ticket.SessionKey
 
 	if jticket, err = json.Marshal(ticket); err != nil {
 		return
 	}
-	// Use service key to encrypt ticket
-	if resp.ServiceID == proto.AuthServiceID {
-		masterKey = keystore.AuthMasterKey
-	} else {
-		if masterKey, err = keystore.GetMasterKey(resp.ServiceID); err != nil {
-			return
-		}
-	}
 
-	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(masterKey))
+	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(serviceKey))
 
-	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, masterKey); err != nil {
+	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, serviceKey); err != nil {
 		return
 	}
 
@@ -292,11 +301,11 @@ func genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *http.Request
 		return
 	}
 
-	// Use client key to encrypt response message
-	if masterKey, err = keystore.GetMasterKey(resp.ClientID); err != nil {
+	// Use client master key to encrypt response message
+	if clientKey, err = keystore.GetMasterKey(resp.ClientID); err != nil {
 		return
 	}
-	if message, err = cryptoutil.EncodeMessage(jresp, masterKey); err != nil {
+	if message, err = cryptoutil.EncodeMessage(jresp, clientKey); err != nil {
 		return
 	}
 

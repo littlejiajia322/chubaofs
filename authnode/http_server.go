@@ -59,6 +59,7 @@ func (m *Server) handleFunctions() {
 	http.HandleFunc(proto.AdminDeleteCaps, m.apiAccessEntry)
 	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)*/
 
+	http.Handle(proto.ClientGetTicket, m.handlerWithInterceptor())
 	http.Handle(proto.AdminCreateKey, m.handlerWithInterceptor())
 	http.Handle(proto.AdminGetKey, m.handlerWithInterceptor())
 	http.Handle(proto.AdminDeleteKey, m.handlerWithInterceptor())
