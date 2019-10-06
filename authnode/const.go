@@ -20,6 +20,7 @@ const (
 	ClientMessage     = "Token"
 	TicketReqDuration = 10
 	TicketDuration    = 24 * 60 * 60
+	AuthService       = "AuthService"
 )
 
 const (

@@ -17,31 +17,17 @@ import (
 
 // Cluster stores all the cluster-level information.
 type Cluster struct {
-	Name string
-	/*vols                map[string]*Vol
-	dataNodes           sync.Map
-	metaNodes           sync.Map
-	dpMutex             sync.Mutex   // data partition mutex
-	volMutex            sync.RWMutex // volume mutex
-	createVolMutex      sync.RWMutex // create volume mutex
-	mnMutex             sync.RWMutex // meta node mutex
-	dnMutex             sync.RWMutex // data node mutex*/
-	leaderInfo *LeaderInfo
-	cfg        *clusterConfig
-	retainLogs uint64
-	//idAlloc    *IDAllocator
-	/*t                   *topology
-	dataNodeStatInfo    *nodeStatInfo
-	metaNodeStatInfo    *nodeStatInfo
-	volStatInfo         sync.Map
-	BadDataPartitionIds *sync.Map*/
+	Name                string
+	leaderInfo          *LeaderInfo
+	cfg                 *clusterConfig
+	retainLogs          uint64
 	DisableAutoAllocate bool
 	fsm                 *KeystoreFsm
 	partition           raftstore.Partition
-
-	keystore   map[string]*keystore.KeyInfo
-	ksMutex    sync.RWMutex // keystore mutex
-	opKeyMutex sync.RWMutex // operations on key mutex
+	keystore            map[string]*keystore.KeyInfo
+	ksMutex             sync.RWMutex // keystore mutex
+	opKeyMutex          sync.RWMutex // operations on key mutex
+	AuthServiceKey      []byte
 }
 
 func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition raftstore.Partition, cfg *clusterConfig) (c *Cluster) {
@@ -135,7 +121,7 @@ func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keyst
 		goto errHandler
 	}
 	keyInfo.Ts = time.Now().Unix()
-	keyInfo.Key = cryptoutil.GenMasterKey([]byte(keystore.AuthMasterKey), keyInfo.Ts, id)
+	keyInfo.Key = cryptoutil.GenMasterKey([]byte(c.AuthServiceKey), keyInfo.Ts, id)
 	if err = c.syncAddKey(keyInfo); err != nil {
 		goto errHandler
 	}

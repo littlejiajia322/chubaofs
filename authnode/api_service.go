@@ -27,7 +27,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		err       error
 		jobj      proto.AuthGetTicketReq
 		ts        int64
-		keyInfo   keystore.KeyInfo
+		key       []byte
 		message   string
 	)
 
@@ -43,12 +43,13 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if keyInfo, err = keystore.GetKeyInfo(jobj.ClientID); err != nil {
+	if key, err = m.getMasterKey(jobj.ClientID); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
+	fmt.Printf("id=%s key len=%d\n", jobj.ClientID, len(key))
 
-	if ts, err = parseVerifier(jobj.Verifier, keyInfo.Key); err != nil {
+	if ts, err = parseVerifier(jobj.Verifier, key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -130,7 +131,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	masterKey := keystore.AuthMasterKey
+	masterKey := m.cluster.AuthServiceKey
 
 	if ticket, err = extractTicket(apiReq.Ticket, masterKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "extractTicket failed: " + err.Error()})
@@ -161,8 +162,6 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		newKeyInfo, err = m.handleDeleteKey(&keyInfo)
 	case proto.MsgAuthGetKeyReq:
 		newKeyInfo, err = m.handleGetKey(&keyInfo)
-	//case proto.MsgAuthGetCapsReq:
-	//newKeyInfo, err = m.handleGetCaps(&keyInfo)
 	case proto.MsgAuthAddCapsReq:
 		newKeyInfo, err = m.handleAddCaps(&keyInfo)
 	case proto.MsgAuthDeleteCapsReq:
@@ -198,7 +197,7 @@ func (m *Server) handleDeleteKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyIn
 }
 
 func (m *Server) handleGetKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	if res, err = m.cluster.GetKey(keyInfo.ID); err != nil {
+	if res, err = m.getMasterKeyInfo(keyInfo.ID); err != nil {
 		return
 	}
 	return
@@ -250,11 +249,25 @@ func (m *Server) genTicket(key []byte, serviceID string, IP string, caps []byte)
 	return
 }
 
-func (m *Server) getServiceKey(serviceID string) (key []byte, err error) {
-	if serviceID == proto.AuthServiceID {
-		key = keystore.AuthMasterKey
+func (m *Server) getMasterKey(id string) (key []byte, err error) {
+	var (
+		keyInfo *keystore.KeyInfo
+	)
+	if keyInfo, err = m.getMasterKeyInfo(id); err != nil {
+		return
+	}
+	return keyInfo.Key, err
+}
+
+func (m *Server) getMasterKeyInfo(id string) (keyInfo *keystore.KeyInfo, err error) {
+	if id == proto.AuthServiceID {
+		//err = fmt.Errorf("getMasterKeyInfo error")
+		keyInfo = &keystore.KeyInfo{
+			Key:  m.cluster.AuthServiceKey,
+			Caps: []byte(`{"API": ["*"]}`),
+		}
 	} else {
-		if key, err = keystore.GetMasterKey(serviceID); err != nil {
+		if keyInfo, err = m.cluster.GetKey(id); err != nil {
 			return
 		}
 	}
@@ -269,6 +282,7 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 		serviceKey []byte
 		clientKey  []byte
 		caps       []byte
+		keyInfo    *keystore.KeyInfo
 	)
 
 	resp.Type = req.Type + 1
@@ -276,11 +290,14 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 	resp.ServiceID = req.ServiceID
 	// increase ts by one for client verify server
 	resp.Verifier = ts + 1
-	if caps, err = keystore.GetCaps(resp.ClientID); err != nil {
+
+	if keyInfo, err = m.getMasterKeyInfo(resp.ClientID); err != nil {
 		return
 	}
+	caps = keyInfo.Caps
+
 	// Use service key to encrypt ticket
-	if serviceKey, err = m.getServiceKey(req.ServiceID); err != nil {
+	if serviceKey, err = m.getMasterKey(req.ServiceID); err != nil {
 		return
 	}
 
@@ -302,9 +319,10 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 	}
 
 	// Use client master key to encrypt response message
-	if clientKey, err = keystore.GetMasterKey(resp.ClientID); err != nil {
+	if keyInfo, err = m.getMasterKeyInfo(resp.ClientID); err != nil {
 		return
 	}
+	clientKey = keyInfo.Key
 	if message, err = cryptoutil.EncodeMessage(jresp, clientKey); err != nil {
 		return
 	}
@@ -401,7 +419,7 @@ func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err er
 	return
 }
 
-func verifyAPIAccessReqCommon(req *proto.APIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
+func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
 	var (
 		masterKey []byte
 	)
@@ -418,7 +436,7 @@ func verifyAPIAccessReqCommon(req *proto.APIAccessReq, tp string, resource strin
 		return
 	}
 
-	masterKey = keystore.AuthMasterKey
+	masterKey = m.cluster.AuthServiceKey
 
 	if ticket, err = extractTicket(req.Ticket, masterKey); err != nil {
 		return

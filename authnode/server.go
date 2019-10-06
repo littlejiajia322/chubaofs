@@ -10,6 +10,7 @@ import (
 	"github.com/chubaofs/chubaofs/raftstore"
 	"github.com/chubaofs/chubaofs/util"
 	"github.com/chubaofs/chubaofs/util/config"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 
 	//"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/errors"
@@ -55,11 +56,12 @@ const (
 	WalDir            = "walDir"
 	StoreDir          = "storeDir"
 	GroupID           = 1
-	ModuleName        = "master"
+	ModuleName        = "authnode"
 	CfgRetainLogs     = "retainLogs"
 	DefaultRetainLogs = 20000
 	cfgTickInterval   = "tickInterval"
 	cfgElectionTick   = "electionTick"
+	AuthServiceKey    = "authServiceKey"
 )
 
 // NewServer creates a new server
@@ -85,6 +87,7 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	if err = m.config.parsePeers(peerAddrs); err != nil {
 		return
 	}
+
 	nodeSetCapacity := cfg.GetString(nodeSetCapacity)
 	if nodeSetCapacity != "" {
 		if m.config.nodeSetCapacity, err = strconv.Atoi(nodeSetCapacity); err != nil {
@@ -194,12 +197,6 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 		log.LogError(errors.Stack(err))
 		return
 	}
-	//pattern := "^[a-zA-Z0-9_-]{3,256}$"
-	//volNameRegexp, err = regexp.Compile(pattern)
-	/*if err != nil {
-		log.LogError(err)
-		return
-	}*/
 	m.rocksDBStore = raftstore.NewRocksDBStore(m.storeDir, LRUCacheSize, WriteBufferSize)
 	if err = m.createRaftServer(); err != nil {
 		log.LogError(errors.Stack(err))
@@ -208,6 +205,11 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	m.initCluster()
 	//exporter.Init(ModuleName, cfg)
 	m.cluster.partition = m.partition
+
+	AuthServiceKey := cfg.GetString(AuthServiceKey)
+	if m.cluster.AuthServiceKey, err = cryptoutil.Base64Decode(AuthServiceKey); err != nil {
+		return fmt.Errorf("%v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthServiceKey)
+	}
 	//m.cluster.idAlloc.partition = m.partition
 	m.cluster.scheduleTask()
 	m.startHTTPService()

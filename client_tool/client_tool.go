@@ -38,6 +38,7 @@ type apiFlag struct {
 	service string
 	request string
 	data    string
+	output  string
 }
 
 type flagInfo struct {
@@ -47,7 +48,7 @@ type flagInfo struct {
 
 type keyRing struct {
 	ID  string `json:"id"`
-	Key string `json:"key"`
+	Key []byte `json:"key"`
 }
 
 type ticketFile struct {
@@ -102,7 +103,7 @@ func genVerifier(key []byte) (v string, ts int64, err error) {
 	ts = time.Now().Unix()
 	tsbuf := make([]byte, unsafe.Sizeof(ts))
 	binary.LittleEndian.PutUint64(tsbuf, uint64(ts))
-	if v, err = cryptoutil.EncodeMessage(tsbuf, []byte(key)); err != nil {
+	if v, err = cryptoutil.EncodeMessage(tsbuf, key); err != nil {
 		panic(err)
 	}
 	return
@@ -123,7 +124,7 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		ServiceID: proto.AuthServiceID,
 	}
 
-	if messageStruct.Verifier, ts, err = genVerifier([]byte(keyring.Key)); err != nil {
+	if messageStruct.Verifier, ts, err = genVerifier(keyring.Key); err != nil {
 		panic(err)
 	}
 
@@ -131,7 +132,7 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 
 	fmt.Printf("\n" + string(body) + "\n")
 
-	if msgResp, err = proto.ParseAuthGetTicketResp(body, []byte(keyring.Key)); err != nil {
+	if msgResp, err = proto.ParseAuthGetTicketResp(body, keyring.Key); err != nil {
 		panic(err)
 	}
 
@@ -145,11 +146,15 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 	return
 }
 
-func getTicket() (err error) {
+func getTicket() {
 	cfg := config.LoadConfigFile(flaginfo.ticket.key)
+	key, err := cryptoutil.Base64Decode(cfg.GetString("key"))
+	if err != nil {
+		panic(err)
+	}
 	keyring := keyRing{
 		ID:  cfg.GetString("id"),
-		Key: cfg.GetString("key"),
+		Key: key,
 	}
 
 	ticketfile := getTicketFromAuth(&keyring)
@@ -243,13 +248,6 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	/*case "getcaps":
-	message = proto.AuthAPIAccessReq{
-		APIReq: *apiReq,
-		KeyInfo: keystore.KeyInfo{
-			ID: dataCFG.GetString("id"),
-		},
-	}*/
 	default:
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
@@ -343,13 +341,15 @@ func main() {
 		flaginfo.ticket.output = *file
 		getTicket()
 	} else {
-		ticket := apiCmd.String("ticketfile", "dddd", "path to ticket file")
+		ticket := apiCmd.String("ticketfile", "", "path to ticket file")
 		url := apiCmd.String("url", "", "api url")
 		data := apiCmd.String("data", "", "request data file")
+		output := apiCmd.String("output", "", "output path")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
 		flaginfo.api.url = *url
 		flaginfo.api.data = *data
+		flaginfo.api.output = output
 		if len(apiCmd.Args()) >= 2 {
 			flaginfo.api.service = apiCmd.Args()[0]
 			flaginfo.api.request = apiCmd.Args()[1]

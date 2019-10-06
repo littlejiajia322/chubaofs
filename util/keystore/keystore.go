@@ -79,6 +79,7 @@ func (u *KeyInfo) IsValidKeyInfo() (err error) {
 	return
 }
 
+/*
 type keystore struct {
 	Content map[string]KeyInfo
 }
@@ -182,16 +183,6 @@ func GetCaps(id string) (caps []byte, err error) {
 	return
 }
 
-// AddNewKey add a new key into keystore
-func AddNewKey(id string, KeyInfo *KeyInfo) (res KeyInfo, err error) {
-	/*res = *KeyInfo
-	res.Key = genClientMasterKey(KeyInfo.ID)
-	if err = Keystore.addValue(id, &res); err != nil {
-		return
-	}*/
-	return
-}
-
 // DeleteKey delete an key in Keystore
 func DeleteKey(id string) (err error) {
 	if err = Keystore.deleteValue(id); err != nil {
@@ -253,9 +244,4 @@ func DeleteCaps(id string, del []byte) (newCaps []byte, err error) {
 	Keystore.updateCaps(id, newCaps)
 	return
 }
-
-/*func genClientMasterKey(name string) (key []byte) {
-	// generate client master key according to ID and AuthMasterkey
-	key = cryptoutil.GenMasterKey([]byte(AuthMasterKey), []byte(name))
-	return
-}*/
+*/
