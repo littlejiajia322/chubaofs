@@ -24,7 +24,7 @@ type Cluster struct {
 	DisableAutoAllocate bool
 	fsm                 *KeystoreFsm
 	partition           raftstore.Partition
-	keystore            map[string]*keystore.KeyInfo
+	keystore            *map[string]*keystore.KeyInfo
 	ksMutex             sync.RWMutex // keystore mutex
 	opKeyMutex          sync.RWMutex // operations on key mutex
 	AuthServiceKey      []byte
@@ -34,27 +34,17 @@ func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition
 	c = new(Cluster)
 	c.Name = name
 	c.leaderInfo = leaderInfo
-	//c.vols = make(map[string]*Vol, 0)
 	c.cfg = cfg
 	c.fsm = fsm
 	c.partition = partition
-	c.keystore = make(map[string]*keystore.KeyInfo, 0)
+	c.keystore = new(map[string]*keystore.KeyInfo)
 	//c.idAlloc = newIDAllocator(c.fsm.store, c.partition)
 	return
 }
 
 func (c *Cluster) scheduleTask() {
-	//c.scheduleToCheckDataPartitions()
-	//c.scheduleToLoadDataPartitions()
-	//c.scheduleToCheckReleaseDataPartitions()
 	c.scheduleToCheckHeartbeat()
-	//c.scheduleToCheckMetaPartitions()
-	//c.scheduleToUpdateStatInfo()
-	//c.scheduleToCheckAutoDataPartitionCreation()
-	//c.scheduleToCheckVolStatus()
-	//c.scheduleToCheckDiskRecoveryProgress()
-	//c.scheduleToLoadMetaPartitions()
-	//c.scheduleToReduceReplicaNum()
+	c.scheduleToLoadKeystore()
 }
 
 func (c *Cluster) masterAddr() (addr string) {
@@ -66,20 +56,24 @@ func (c *Cluster) scheduleToCheckHeartbeat() {
 		for {
 			if c.partition != nil && c.partition.IsRaftLeader() {
 				c.checkLeaderAddr()
-				//c.checkDataNodeHeartbeat()
 			}
 			time.Sleep(time.Second * defaultIntervalToCheckHeartbeat)
 		}
 	}()
-	/*
-		go func() {
-			for {
-				if c.partition != nil && c.partition.IsRaftLeader() {
-					c.checkMetaNodeHeartbeat()
-				}
-				time.Sleep(time.Second * defaultIntervalToCheckHeartbeat)
+}
+
+// TODO: add lock, implemented as raftcmd
+func (c *Cluster) scheduleToLoadKeystore() {
+	go func() {
+		for {
+			time.Sleep(time.Second * defaultIntervalToLoadKeystore)
+			if c.partition != nil && !c.partition.IsRaftLeader() {
+				c.clearKeystore()
+				c.loadKeystore()
 			}
-		}()*/
+			//time.Sleep(time.Second * defaultIntervalToLoadKeystore)
+		}
+	}()
 }
 
 func (c *Cluster) checkLeaderAddr() {
@@ -90,15 +84,15 @@ func (c *Cluster) checkLeaderAddr() {
 func (c *Cluster) putKey(k *keystore.KeyInfo) {
 	c.ksMutex.Lock()
 	defer c.ksMutex.Unlock()
-	if _, ok := c.keystore[k.ID]; !ok {
-		c.keystore[k.ID] = k
+	if _, ok := (*c.keystore)[k.ID]; !ok {
+		(*c.keystore)[k.ID] = k
 	}
 }
 
 func (c *Cluster) getKey(id string) (u *keystore.KeyInfo, err error) {
 	c.ksMutex.RLock()
 	defer c.ksMutex.RUnlock()
-	u, ok := c.keystore[id]
+	u, ok := (*c.keystore)[id]
 	if !ok {
 		err = proto.ErrKeyNotExists
 	}
@@ -108,7 +102,7 @@ func (c *Cluster) getKey(id string) (u *keystore.KeyInfo, err error) {
 func (c *Cluster) deleteKey(id string) {
 	c.ksMutex.Lock()
 	defer c.ksMutex.Unlock()
-	delete(c.keystore, id)
+	delete((*c.keystore), id)
 	return
 }
 

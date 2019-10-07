@@ -119,6 +119,7 @@ func (c *Cluster) syncPutKeyInfo(opType uint32, keyInfo *keystore.KeyInfo) (err 
 }
 
 func (c *Cluster) loadKeystore() (err error) {
+	ks := make(map[string]*keystore.KeyInfo, 0)
 	log.LogInfof("action[loadKeystore]")
 	result, err := c.fsm.store.SeekForPrefix([]byte(ksPrefix))
 	if err != nil {
@@ -126,19 +127,26 @@ func (c *Cluster) loadKeystore() (err error) {
 		return err
 	}
 	for _, value := range result {
-		u := &keystore.KeyInfo{}
-		if err = json.Unmarshal(value, u); err != nil {
+		k := &keystore.KeyInfo{}
+		if err = json.Unmarshal(value, k); err != nil {
 			err = fmt.Errorf("action[loadKeystore],value:%v,unmarshal err:%v", string(value), err)
 			return err
 		}
-		c.putKey(u)
-		log.LogInfof("action[loadKeystore],key[%v]", u)
+		//c.putKey(u)
+		if _, ok := ks[k.ID]; !ok {
+			ks[k.ID] = k
+		}
+		log.LogInfof("action[loadKeystore],key[%v]", k)
 	}
+	c.ksMutex.Lock()
+	defer c.ksMutex.Unlock()
+	c.keystore = &ks
+
 	return
 }
 
 func (c *Cluster) clearKeystore() {
 	c.ksMutex.Lock()
 	defer c.ksMutex.Unlock()
-	c.keystore = make(map[string]*keystore.KeyInfo, 0)
+	c.keystore = nil
 }

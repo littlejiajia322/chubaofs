@@ -261,7 +261,6 @@ func (m *Server) getMasterKey(id string) (key []byte, err error) {
 
 func (m *Server) getMasterKeyInfo(id string) (keyInfo *keystore.KeyInfo, err error) {
 	if id == proto.AuthServiceID {
-		//err = fmt.Errorf("getMasterKeyInfo error")
 		keyInfo = &keystore.KeyInfo{
 			Key:  m.cluster.AuthServiceKey,
 			Caps: []byte(`{"API": ["*"]}`),

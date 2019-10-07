@@ -51,15 +51,7 @@ func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Server) handleFunctions() {
-	/*http.HandleFunc(proto.ClientGetTicket, m.getTicket)
-	http.HandleFunc(proto.AdminCreateKey, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminDeleteKey, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminGetKey, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminAddCaps, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminDeleteCaps, m.apiAccessEntry)
-	http.HandleFunc(proto.AdminGetCaps, m.apiAccessEntry)*/
-
-	http.Handle(proto.ClientGetTicket, m.handlerWithInterceptor())
+	http.HandleFunc(proto.ClientGetTicket, m.getTicket)
 	http.Handle(proto.AdminCreateKey, m.handlerWithInterceptor())
 	http.Handle(proto.AdminGetKey, m.handlerWithInterceptor())
 	http.Handle(proto.AdminDeleteKey, m.handlerWithInterceptor())

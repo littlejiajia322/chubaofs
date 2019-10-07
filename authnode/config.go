@@ -30,6 +30,7 @@ const (
 	defaultSecondsToFreeDataPartitionAfterLoad = 5 * 60 // a data partition can only be freed after loading 5 mins
 	defaultIntervalToFreeDataPartition         = 10     // in terms of seconds
 	defaultIntervalToCheckHeartbeat            = 60
+	defaultIntervalToLoadKeystore              = 5 * 60
 	defaultIntervalToCheckDataPartition        = 60
 	defaultIntervalToCheckCrc                  = 20 * defaultIntervalToCheckHeartbeat // in terms of seconds
 	noHeartBeatTimes                           = 3                                    // number of times that no heartbeat reported

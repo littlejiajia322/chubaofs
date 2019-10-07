@@ -210,6 +210,7 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	if m.cluster.AuthServiceKey, err = cryptoutil.Base64Decode(AuthServiceKey); err != nil {
 		return fmt.Errorf("%v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthServiceKey)
 	}
+	fmt.Printf("server authServiceKey len=%d\n", len(m.cluster.AuthServiceKey))
 	//m.cluster.idAlloc.partition = m.partition
 	m.cluster.scheduleTask()
 	m.startHTTPService()

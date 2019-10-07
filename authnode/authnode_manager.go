@@ -51,8 +51,8 @@ func (m *Server) handleLeaderChange(leader uint64) {
 	} else {
 		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",
 		//	m.clusterName, m.leaderInfo.addr))
-		m.cluster.clearKeystore()
-		m.metaReady = false // TODO lock? swith?
+		//m.cluster.clearKeystore()
+		//m.metaReady = false // TODO lock? swith?
 	}
 }
 

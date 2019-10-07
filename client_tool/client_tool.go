@@ -349,7 +349,7 @@ func main() {
 		flaginfo.api.ticket = *ticket
 		flaginfo.api.url = *url
 		flaginfo.api.data = *data
-		flaginfo.api.output = output
+		flaginfo.api.output = *output
 		if len(apiCmd.Args()) >= 2 {
 			flaginfo.api.service = apiCmd.Args()[0]
 			flaginfo.api.request = apiCmd.Args()[1]
