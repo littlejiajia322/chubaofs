@@ -15,12 +15,13 @@
 package authnode
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/tecbot/gorocksdb"
 )
 
-// KeystoreSnapshot represents the snapshot of a meta partition
+// KeystoreSnapshot represents the snapshot of a keystore partition
 type KeystoreSnapshot struct {
 	fsm      *KeystoreFsm
 	applied  uint64
@@ -40,7 +41,7 @@ func (ms *KeystoreSnapshot) Close() {
 
 // Next implements the Snapshot interface
 func (ms *KeystoreSnapshot) Next() (data []byte, err error) {
-	/*md := new(RaftCmd)
+	md := new(RaftCmd)
 	if ms.iterator.Valid() {
 		key := ms.iterator.Key()
 		md.K = string(key.Data())
@@ -55,6 +56,6 @@ func (ms *KeystoreSnapshot) Next() (data []byte, err error) {
 		}
 		ms.iterator.Next()
 		return data, nil
-	}*/
+	}
 	return nil, io.EOF
 }

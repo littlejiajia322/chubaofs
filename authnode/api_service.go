@@ -36,8 +36,6 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("message=%s\n", plaintext)
-
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
@@ -47,7 +45,6 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	fmt.Printf("id=%s key len=%d\n", jobj.ClientID, len(key))
 
 	if ts, err = parseVerifier(jobj.Verifier, key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
@@ -84,8 +81,6 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("message=%s\n", plaintext)
-
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "Unmarshal AuthAPIAccessReq failed: " + err.Error()})
 		return
@@ -105,7 +100,6 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		}
 	case proto.MsgAuthDeleteKeyReq:
 	case proto.MsgAuthGetKeyReq:
-	//case proto.MsgAuthGetCapsReq:
 	case proto.MsgAuthAddCapsReq:
 		fallthrough
 	case proto.MsgAuthDeleteCapsReq:

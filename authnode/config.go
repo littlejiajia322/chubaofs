@@ -52,21 +52,10 @@ const (
 )
 
 type clusterConfig struct {
-	secondsToFreeDataPartitionAfterLoad int64
-	NodeTimeOutSec                      int64
-	MissingDataPartitionInterval        int64
-	DataPartitionTimeOutSec             int64
-	IntervalToAlarmMissingDataPartition int64
-	PeriodToLoadALLDataPartitions       int64
-	IntervalToCheckDataPartition        int // seconds
-	numberOfDataPartitionsToFree        int
-	numberOfDataPartitionsToLoad        int
-	nodeSetCapacity                     int
-	MetaNodeThreshold                   float32
-	peers                               []raftstore.PeerAddress
-	peerAddrs                           []string
-	heartbeatPort                       int64
-	replicaPort                         int64
+	peers         []raftstore.PeerAddress
+	peerAddrs     []string
+	heartbeatPort int64
+	replicaPort   int64
 }
 
 // AddrDatabase is a map that stores the address of a given host (e.g., the leader)
@@ -74,16 +63,6 @@ var AddrDatabase = make(map[uint64]string)
 
 func newClusterConfig() (cfg *clusterConfig) {
 	cfg = new(clusterConfig)
-	//cfg.numberOfDataPartitionsToFree = defaultTobeFreedDataPartitionCount
-	//cfg.secondsToFreeDataPartitionAfterLoad = defaultSecondsToFreeDataPartitionAfterLoad
-	//cfg.NodeTimeOutSec = defaultNodeTimeOutSec
-	///cfg.MissingDataPartitionInterval = defaultMissingDataPartitionInterval
-	//cfg.DataPartitionTimeOutSec = defaultDataPartitionTimeOutSec
-	//cfg.IntervalToCheckDataPartition = defaultIntervalToCheckDataPartition
-	//cfg.IntervalToAlarmMissingDataPartition = defaultIntervalToAlarmMissingDataPartition
-	//cfg.numberOfDataPartitionsToLoad = defaultNumberOfDataPartitionsToLoad
-	//cfg.PeriodToLoadALLDataPartitions = defaultPeriodToLoadAllDataPartitions
-	//cfg.MetaNodeThreshold = defaultMetaPartitionMemUsageThreshold
 	return
 }
 

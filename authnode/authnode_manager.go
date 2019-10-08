@@ -46,13 +46,6 @@ func (m *Server) handleLeaderChange(leader uint64) {
 			}
 			m.metaReady = true
 		}
-		//m.cluster.checkDataNodeHeartbeat()
-		//m.cluster.checkMetaNodeHeartbeat()
-	} else {
-		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",
-		//	m.clusterName, m.leaderInfo.addr))
-		//m.cluster.clearKeystore()
-		//m.metaReady = false // TODO lock? swith?
 	}
 }
 
@@ -79,8 +72,9 @@ func (m *Server) handlePeerChange(confChange *proto.ConfChange) (err error) {
 }
 
 func (m *Server) handleApplySnapshot() {
+	log.LogInfo("clusterID[%v] peerID:%v action[handleApplySnapshot]", m.clusterName, m.id)
 	m.fsm.restore()
-	m.restoreIDAlloc()
+	//m.restoreIDAlloc()
 	return
 }
 

@@ -88,15 +88,6 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 		return
 	}
 
-	nodeSetCapacity := cfg.GetString(nodeSetCapacity)
-	if nodeSetCapacity != "" {
-		if m.config.nodeSetCapacity, err = strconv.Atoi(nodeSetCapacity); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
-		}
-	}
-	if m.config.nodeSetCapacity < 3 {
-		m.config.nodeSetCapacity = defaultNodeSetCapacity
-	}
 	retainLogs := cfg.GetString(CfgRetainLogs)
 	if retainLogs != "" {
 		if m.retainLogs, err = strconv.ParseUint(retainLogs, 10, 64); err != nil {
@@ -106,36 +97,7 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	if m.retainLogs <= 0 {
 		m.retainLogs = DefaultRetainLogs
 	}
-	fmt.Println("retainLogs=", m.retainLogs)
 
-	missingDataPartitionInterval := cfg.GetString(missingDataPartitionInterval)
-	if missingDataPartitionInterval != "" {
-		if m.config.MissingDataPartitionInterval, err = strconv.ParseInt(missingDataPartitionInterval, 10, 0); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
-		}
-	}
-
-	dataPartitionTimeOutSec := cfg.GetString(dataPartitionTimeOutSec)
-	if dataPartitionTimeOutSec != "" {
-		if m.config.DataPartitionTimeOutSec, err = strconv.ParseInt(dataPartitionTimeOutSec, 10, 0); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
-		}
-	}
-
-	numberOfDataPartitionsToLoad := cfg.GetString(NumberOfDataPartitionsToLoad)
-	if numberOfDataPartitionsToLoad != "" {
-		if m.config.numberOfDataPartitionsToLoad, err = strconv.Atoi(numberOfDataPartitionsToLoad); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
-		}
-	}
-	if m.config.numberOfDataPartitionsToLoad <= 40 {
-		m.config.numberOfDataPartitionsToLoad = 40
-	}
-	if secondsToFreeDP := cfg.GetString(secondsToFreeDataPartitionAfterLoad); secondsToFreeDP != "" {
-		if m.config.secondsToFreeDataPartitionAfterLoad, err = strconv.ParseInt(secondsToFreeDP, 10, 64); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
-		}
-	}
 	m.config.heartbeatPort = cfg.GetInt64(heartbeatPortKey)
 	m.config.replicaPort = cfg.GetInt64(replicaPortKey)
 	fmt.Printf("heartbeatPort[%v],replicaPort[%v]\n", m.config.heartbeatPort, m.config.replicaPort)

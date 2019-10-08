@@ -26,36 +26,36 @@ func (m *RaftCmd) Unmarshal(data []byte) (err error) {
 	return json.Unmarshal(data, m)
 }
 
-func (m *RaftCmd) setOpType() {
-	/*keyArr := strings.Split(m.K, keySeparator)
-	if len(keyArr) < 2 {
-		log.LogWarnf("action[setOpType] invalid length[%v]", keyArr)
-		return
-	}
-	switch keyArr[1] {
-	case metaNodeAcronym:
-		m.Op = opSyncAddMetaNode
-	case dataNodeAcronym:
-		m.Op = opSyncAddDataNode
-	case dataPartitionAcronym:
-		m.Op = opSyncAddDataPartition
-	case metaPartitionAcronym:
-		m.Op = opSyncAddMetaPartition
-	case volAcronym:
-		m.Op = opSyncAddVol
-	case clusterAcronym:
-		m.Op = opSyncPutCluster
-	case nodeSetAcronym:
-		m.Op = opSyncAddNodeSet
-	case maxDataPartitionIDKey:
-		m.Op = opSyncAllocDataPartitionID
-	case maxMetaPartitionIDKey:
-		m.Op = opSyncAllocMetaPartitionID
-	case maxCommonIDKey:
-		m.Op = opSyncAllocCommonID
-	default:
-		log.LogWarnf("action[setOpType] unknown opCode[%v]", keyArr[1])
-	}*/
+func (m *RaftCmd) setOpType() { /*
+		keyArr := strings.Split(m.K, keySeparator)
+		if len(keyArr) < 2 {
+			log.LogWarnf("action[setOpType] invalid length[%v]", keyArr)
+			return
+		}
+		switch keyArr[1] {
+		case metaNodeAcronym:
+			m.Op = opSyncAddMetaNode
+		case dataNodeAcronym:
+			m.Op = opSyncAddDataNode
+		case dataPartitionAcronym:
+			m.Op = opSyncAddDataPartition
+		case metaPartitionAcronym:
+			m.Op = opSyncAddMetaPartition
+		case volAcronym:
+			m.Op = opSyncAddVol
+		case clusterAcronym:
+			m.Op = opSyncPutCluster
+		case nodeSetAcronym:
+			m.Op = opSyncAddNodeSet
+		case maxDataPartitionIDKey:
+			m.Op = opSyncAllocDataPartitionID
+		case maxMetaPartitionIDKey:
+			m.Op = opSyncAllocMetaPartitionID
+		case maxCommonIDKey:
+			m.Op = opSyncAllocCommonID
+		default:
+			log.LogWarnf("action[setOpType] unknown opCode[%v]", keyArr[1])
+	*/
 }
 
 // KeyInfoValue define the values for a key
