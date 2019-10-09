@@ -68,7 +68,7 @@ func (c *Cluster) submit(metadata *RaftCmd) (err error) {
 		return errors.New(err.Error())
 	}
 	if _, err = c.partition.Submit(cmd); err != nil {
-		msg := fmt.Sprintf("action[metadata_submit] err:%v", err.Error())
+		msg := fmt.Sprintf("action[keystore_submit] err:%v", err.Error())
 		return errors.New(msg)
 	}
 	return

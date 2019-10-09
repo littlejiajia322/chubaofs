@@ -7,7 +7,7 @@
  "prof":"10088",
  "id":"1",
  "peers": "1:10.5.0.5:8080,2:10.5.0.6:8081",
- "retainLogs":"20000",
+ "retainLogs":"2",
  "logDir": "/export/Logs/authnode",
  "logLevel":"info",
  "walDir":"/export/Data/authnode/raft",

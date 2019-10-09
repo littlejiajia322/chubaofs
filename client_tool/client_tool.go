@@ -170,7 +170,6 @@ func accessAuthServer() {
 		err        error
 		message    interface{}
 		ts         int64
-		resp       proto.AuthAPIAccessResp
 		res        string
 	)
 
@@ -185,6 +184,10 @@ func accessAuthServer() {
 		msg = proto.MsgAuthAddCapsReq
 	case "deletecaps":
 		msg = proto.MsgAuthDeleteCapsReq
+	case "addraftnode":
+		msg = proto.MsgAuthAddRaftNodeReq
+	case "removeraftnode":
+		msg = proto.MsgAuthRemoveRaftNodeReq
 	default:
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
 	}
@@ -248,6 +251,16 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
+	case "addraftnode":
+		fallthrough
+	case "removeraftnode":
+		message = proto.AuthRaftNodeReq{
+			APIReq: *apiReq,
+			RaftNodeInfo: proto.AuthRaftNodeInfo{
+				ID:   uint64(dataCFG.GetInt64("id")),
+				Addr: dataCFG.GetString("addr"),
+			},
+		}
 	default:
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
@@ -255,16 +268,39 @@ func accessAuthServer() {
 	body := sendReq(flaginfo.api.url, message)
 	fmt.Printf("\nbody: " + string(body) + "\n")
 
-	if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
-		panic(err)
-	}
+	switch flaginfo.api.request {
+	case "createkey":
+		fallthrough
+	case "deletekey":
+		fallthrough
+	case "getkey":
+		fallthrough
+	case "addcaps":
+		fallthrough
+	case "deletecaps":
+		var resp proto.AuthAPIAccessResp
+		if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
+			panic(err)
+		}
 
-	verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
 
-	if res, err = resp.KeyInfo.Dump(); err != nil {
-		panic(err)
+		if res, err = resp.KeyInfo.Dump(); err != nil {
+			panic(err)
+		}
+		fmt.Printf(res + "\n")
+	case "addraftnode":
+		fallthrough
+	case "removeraftnode":
+		var resp proto.AuthRaftNodeResp
+		if resp, err = proto.ParseAuthRaftNodeResp(body, sessionKey); err != nil {
+			panic(err)
+		}
+
+		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+
+		fmt.Printf(resp.Msg + "\n")
 	}
-	fmt.Printf(res + "\n")
 
 	return
 

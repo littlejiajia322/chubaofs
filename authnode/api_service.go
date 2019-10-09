@@ -140,12 +140,11 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg := fmt.Sprintf("add  raft node id :%v, addr:%v successfully \n", raftNodeInfo.ID, raftNodeInfo.Addr)
+	msg := fmt.Sprintf("add raft node id :%v, addr:%v successfully \n", raftNodeInfo.ID, raftNodeInfo.Addr)
 
 	if message, err = genAuthRaftNodeOpResp(&apiReq, ts, ticket.SessionKey.Key, msg); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthRaftNodeGenRespError, Msg: err.Error()})
 	}
-	//req *proto.APIAccessReq, ts int64, key []byte, msg string
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
 

@@ -332,3 +332,20 @@ func ParseAuthAPIAccessResp(body []byte, key []byte) (resp AuthAPIAccessResp, er
 
 	return
 }
+
+// ParseAuthRaftNodeResp parse and validate the auth raft node resp
+func ParseAuthRaftNodeResp(body []byte, key []byte) (resp AuthRaftNodeResp, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = GetDataFromResp(body, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
