@@ -65,6 +65,132 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
+	var (
+		plaintext []byte
+		err       error
+		jobj      proto.AuthRaftNodeReq
+		ticket    cryptoutil.Ticket
+		ts        int64
+		message   string
+	)
+
+	if plaintext, err = m.extractClientReqInfo(r); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "Unmarshal AuthRaftNodeReq failed: " + err.Error()})
+		return
+	}
+
+	apiReq := jobj.APIReq
+	raftNodeInfo := jobj.RaftNodeInfo
+
+	if err = proto.IsValidClientID(apiReq.ClientID); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidClientID failed: " + err.Error()})
+		return
+	}
+
+	if err = proto.IsValidServiceID(apiReq.ServiceID); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidServiceID failed: " + err.Error()})
+		return
+	}
+
+	if err = proto.IsValidMsgReqType(apiReq.ServiceID, apiReq.Type); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidMsgReqType failed: " + err.Error()})
+		return
+	}
+
+	masterKey := m.cluster.AuthServiceKey
+
+	if ticket, err = extractTicket(apiReq.Ticket, masterKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "extractTicket failed: " + err.Error()})
+		return
+	}
+
+	if ts, err = parseVerifier(apiReq.Verifier, ticket.SessionKey.Key); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "parseVerifier failed: " + err.Error()})
+		return
+	}
+
+	if _, ok := proto.MsgType2ResourceMap[apiReq.Type]; !ok {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "MsgType2ResourceMap failed"})
+		return
+	}
+
+	resource := proto.MsgType2ResourceMap[apiReq.Type]
+
+	if err = checkTicketCaps(&ticket, "API", resource); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "checkTicketCaps failed: " + err.Error()})
+		return
+	}
+
+	switch apiReq.Type {
+	case proto.MsgAuthAddRaftNodeReq:
+		err = m.handleAddRaftNode(&raftNodeInfo)
+	case proto.MsgAuthRemoveRaftNodeReq:
+		err = m.handleRemoveRaftNode(&raftNodeInfo)
+	default:
+	}
+
+	if err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthKeyStoreError, Msg: err.Error()})
+		return
+	}
+
+	msg := fmt.Sprintf("add  raft node id :%v, addr:%v successfully \n", raftNodeInfo.ID, raftNodeInfo.Addr)
+
+	if message, err = genAuthRaftNodeOpResp(&apiReq, ts, ticket.SessionKey.Key, msg); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthRaftNodeGenRespError, Msg: err.Error()})
+	}
+	//req *proto.APIAccessReq, ts int64, key []byte, msg string
+
+	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
+
+}
+
+func (m *Server) handleAddRaftNode(raftNodeInfo *proto.AuthRaftNodeInfo) (err error) {
+	if err = m.cluster.addRaftNode(raftNodeInfo.ID, raftNodeInfo.Addr); err != nil {
+		return
+	}
+	return
+}
+
+func (m *Server) handleRemoveRaftNode(raftNodeInfo *proto.AuthRaftNodeInfo) (err error) {
+	if err = m.cluster.removeRaftNode(raftNodeInfo.ID, raftNodeInfo.Addr); err != nil {
+		return
+	}
+	return
+}
+
+func genAuthRaftNodeOpResp(req *proto.APIAccessReq, ts int64, key []byte, msg string) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.AuthRaftNodeResp
+	)
+
+	resp.APIResp.Type = req.Type + 1
+	resp.APIResp.ClientID = req.ClientID
+	resp.APIResp.ServiceID = req.ServiceID
+	resp.APIResp.Verifier = ts + 1 // increase ts by one for client verify server
+
+	resp.Msg = msg
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		err = fmt.Errorf("json marshal for response failed %s", err.Error())
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		err = fmt.Errorf("encdoe message for response failed %s", err.Error())
+		return
+	}
+
+	return
+}
+
 func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext  []byte

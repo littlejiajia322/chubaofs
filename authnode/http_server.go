@@ -45,6 +45,10 @@ func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fallthrough
 	case proto.AdminGetCaps:
 		m.apiAccessEntry(w, r)
+	case proto.AdminAddRaftNode:
+		fallthrough
+	case proto.AdminRemoveRaftNode:
+		m.raftNodeOp(w, r)
 	default:
 		//TODO
 	}
@@ -58,6 +62,8 @@ func (m *Server) handleFunctions() {
 	http.Handle(proto.AdminAddCaps, m.handlerWithInterceptor())
 	http.Handle(proto.AdminDeleteCaps, m.handlerWithInterceptor())
 	http.Handle(proto.AdminGetCaps, m.handlerWithInterceptor())
+	http.Handle(proto.AdminAddRaftNode, m.handlerWithInterceptor())
+	http.Handle(proto.AdminRemoveRaftNode, m.handlerWithInterceptor())
 
 	return
 }

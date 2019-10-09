@@ -100,6 +100,7 @@ const (
 	ErrCodeVolAuthKeyNotMatch
 	ErrCodeAuthKeyStoreError
 	ErrCodeAuthAPIAccessGenRespError
+	ErrCodeAuthRaftNodeGenRespError
 )
 
 // Err2CodeMap error map to code

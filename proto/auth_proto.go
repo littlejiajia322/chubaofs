@@ -38,12 +38,14 @@ const (
 	ClientGetTicket = "/client/getticket"
 
 	// Admin APIs
-	AdminCreateKey  = "/admin/createkey"
-	AdminDeleteKey  = "/admin/deletekey"
-	AdminGetKey     = "/admin/getkey"
-	AdminAddCaps    = "/admin/addcaps"
-	AdminDeleteCaps = "/admin/deletecaps"
-	AdminGetCaps    = "/admin/getcaps"
+	AdminCreateKey      = "/admin/createkey"
+	AdminDeleteKey      = "/admin/deletekey"
+	AdminGetKey         = "/admin/getkey"
+	AdminAddCaps        = "/admin/addcaps"
+	AdminDeleteCaps     = "/admin/deletecaps"
+	AdminGetCaps        = "/admin/getcaps"
+	AdminAddRaftNode    = "/admin/addraftnode"
+	AdminRemoveRaftNode = "/admin/removeraftnode"
 
 	//raft node APIs
 
@@ -131,6 +133,18 @@ const (
 	// MsgAuthGetCapsResp response type for authnode add caps
 	MsgAuthGetCapsResp MsgType = MsgAuthBase + 0x56001
 
+	// MsgAuthAddRaftNodeReq request type for authnode add node
+	MsgAuthAddRaftNodeReq MsgType = MsgAuthBase + 0x57000
+
+	// MsgAuthAddRaftNodeResp response type for authnode remove node
+	MsgAuthAddRaftNodeResp MsgType = MsgAuthBase + 0x57001
+
+	// MsgAuthRemoveRaftNodeReq request type for authnode remove node
+	MsgAuthRemoveRaftNodeReq MsgType = MsgAuthBase + 0x58000
+
+	// MsgAuthRemoveRaftNodeResp response type for authnode remove node
+	MsgAuthRemoveRaftNodeResp MsgType = MsgAuthBase + 0x58001
+
 	// MsgMasterAPIAccessReq request type for master api access
 	MsgMasterAPIAccessReq MsgType = 0x60000
 
@@ -147,12 +161,14 @@ type HTTPAuthReply struct {
 
 // MsgType2ResourceMap define the mapping from message type to resource
 var MsgType2ResourceMap = map[MsgType]string{
-	MsgAuthCreateKeyReq:  "createkey",
-	MsgAuthDeleteKeyReq:  "deletekey",
-	MsgAuthGetKeyReq:     "getkey",
-	MsgAuthAddCapsReq:    "addcaps",
-	MsgAuthDeleteCapsReq: "deletecaps",
-	MsgAuthGetCapsReq:    "getcaps",
+	MsgAuthCreateKeyReq:      "createkey",
+	MsgAuthDeleteKeyReq:      "deletekey",
+	MsgAuthGetKeyReq:         "getkey",
+	MsgAuthAddCapsReq:        "addcaps",
+	MsgAuthDeleteCapsReq:     "deletecaps",
+	MsgAuthGetCapsReq:        "getcaps",
+	MsgAuthAddRaftNodeReq:    "addnode",
+	MsgAuthRemoveRaftNodeReq: "removenode",
 }
 
 // AuthGetTicketReq defines the message from client to authnode
@@ -206,6 +222,23 @@ type AuthAPIAccessReq struct {
 type AuthAPIAccessResp struct {
 	APIResp APIAccessResp    `json:"api_resp"`
 	KeyInfo keystore.KeyInfo `json:"key_info"`
+}
+
+type AuthRaftNodeInfo struct {
+	ID   uint64 `json:"id"`
+	Addr string `json:"addr"`
+}
+
+// AuthRaftNodeReq defines Auth API request for add/remove a raft ndoe
+type AuthRaftNodeReq struct {
+	APIReq       APIAccessReq     `json:"api_req"`
+	RaftNodeInfo AuthRaftNodeInfo `json:"node_info"`
+}
+
+// AuthRaftNodeResp defines Auth API respose for add/remove a raft ndoe
+type AuthRaftNodeResp struct {
+	APIResp APIAccessResp `json:"api_resp"`
+	Msg     string        `json:"msg"`
 }
 
 // IsValidServiceID determine the validity of a serviceID

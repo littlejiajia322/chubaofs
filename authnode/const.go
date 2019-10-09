@@ -53,6 +53,6 @@ const (
 
 const (
 	keySeparator = "#"
-	keyAcronym   = "client"
+	keyAcronym   = "key"
 	ksPrefix     = keySeparator + keyAcronym + keySeparator
 )

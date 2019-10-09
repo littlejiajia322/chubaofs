@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/chubaofs/chubaofs/util/keystore"
 	"github.com/chubaofs/chubaofs/util/log"
+	"github.com/tiglabs/raft/proto"
 )
 
 // RaftCmd defines the Raft commands.
@@ -26,36 +28,18 @@ func (m *RaftCmd) Unmarshal(data []byte) (err error) {
 	return json.Unmarshal(data, m)
 }
 
-func (m *RaftCmd) setOpType() { /*
-		keyArr := strings.Split(m.K, keySeparator)
-		if len(keyArr) < 2 {
-			log.LogWarnf("action[setOpType] invalid length[%v]", keyArr)
-			return
-		}
-		switch keyArr[1] {
-		case metaNodeAcronym:
-			m.Op = opSyncAddMetaNode
-		case dataNodeAcronym:
-			m.Op = opSyncAddDataNode
-		case dataPartitionAcronym:
-			m.Op = opSyncAddDataPartition
-		case metaPartitionAcronym:
-			m.Op = opSyncAddMetaPartition
-		case volAcronym:
-			m.Op = opSyncAddVol
-		case clusterAcronym:
-			m.Op = opSyncPutCluster
-		case nodeSetAcronym:
-			m.Op = opSyncAddNodeSet
-		case maxDataPartitionIDKey:
-			m.Op = opSyncAllocDataPartitionID
-		case maxMetaPartitionIDKey:
-			m.Op = opSyncAllocMetaPartitionID
-		case maxCommonIDKey:
-			m.Op = opSyncAllocCommonID
-		default:
-			log.LogWarnf("action[setOpType] unknown opCode[%v]", keyArr[1])
-	*/
+func (m *RaftCmd) setOpType() {
+	keyArr := strings.Split(m.K, keySeparator)
+	if len(keyArr) < 2 {
+		log.LogWarnf("action[setOpType] invalid length[%v]", keyArr)
+		return
+	}
+	switch keyArr[1] {
+	case keyAcronym:
+		m.Op = opSyncAddKey
+	default:
+		log.LogWarnf("action[setOpType] unknown opCode[%v]", keyArr[1])
+	}
 }
 
 // KeyInfoValue define the values for a key
@@ -149,4 +133,22 @@ func (c *Cluster) clearKeystore() {
 	c.ksMutex.Lock()
 	defer c.ksMutex.Unlock()
 	c.keystore = nil
+}
+
+func (c *Cluster) addRaftNode(nodeID uint64, addr string) (err error) {
+	peer := proto.Peer{ID: nodeID}
+	_, err = c.partition.ChangeMember(proto.ConfAddNode, peer, []byte(addr))
+	if err != nil {
+		return errors.New("action[addRaftNode] error: " + err.Error())
+	}
+	return nil
+}
+
+func (c *Cluster) removeRaftNode(nodeID uint64, addr string) (err error) {
+	peer := proto.Peer{ID: nodeID}
+	_, err = c.partition.ChangeMember(proto.ConfRemoveNode, peer, []byte(addr))
+	if err != nil {
+		return errors.New("action[removeRaftNode] error: " + err.Error())
+	}
+	return nil
 }
