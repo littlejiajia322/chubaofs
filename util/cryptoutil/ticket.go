@@ -1,9 +1,5 @@
 package cryptoutil
 
-import (
-
-)
-
 // CryptoKey store the session key
 type CryptoKey struct {
 	Ctime int64  `json:"c_time"`

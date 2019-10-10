@@ -88,42 +88,8 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	apiReq := jobj.APIReq
 	raftNodeInfo := jobj.RaftNodeInfo
 
-	if err = proto.IsValidClientID(apiReq.ClientID); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidClientID failed: " + err.Error()})
-		return
-	}
-
-	if err = proto.IsValidServiceID(apiReq.ServiceID); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidServiceID failed: " + err.Error()})
-		return
-	}
-
-	if err = proto.IsValidMsgReqType(apiReq.ServiceID, apiReq.Type); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidMsgReqType failed: " + err.Error()})
-		return
-	}
-
-	masterKey := m.cluster.AuthServiceKey
-
-	if ticket, err = extractTicket(apiReq.Ticket, masterKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "extractTicket failed: " + err.Error()})
-		return
-	}
-
-	if ts, err = parseVerifier(apiReq.Verifier, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "parseVerifier failed: " + err.Error()})
-		return
-	}
-
-	if _, ok := proto.MsgType2ResourceMap[apiReq.Type]; !ok {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "MsgType2ResourceMap failed"})
-		return
-	}
-
-	resource := proto.MsgType2ResourceMap[apiReq.Type]
-
-	if err = checkTicketCaps(&ticket, "API", resource); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "checkTicketCaps failed: " + err.Error()})
+	if ticket, ts, err = m.verifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
 		return
 	}
 
@@ -235,42 +201,8 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid request messge type %x", int32(apiReq.Type)).Error()})
 	}
 
-	if err = proto.IsValidClientID(apiReq.ClientID); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidClientID failed: " + err.Error()})
-		return
-	}
-
-	if err = proto.IsValidServiceID(apiReq.ServiceID); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidServiceID failed: " + err.Error()})
-		return
-	}
-
-	if err = proto.IsValidMsgReqType(apiReq.ServiceID, apiReq.Type); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "IsValidMsgReqType failed: " + err.Error()})
-		return
-	}
-
-	masterKey := m.cluster.AuthServiceKey
-
-	if ticket, err = extractTicket(apiReq.Ticket, masterKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "extractTicket failed: " + err.Error()})
-		return
-	}
-
-	if ts, err = parseVerifier(apiReq.Verifier, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "parseVerifier failed: " + err.Error()})
-		return
-	}
-
-	if _, ok := proto.MsgType2ResourceMap[apiReq.Type]; !ok {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "MsgType2ResourceMap failed"})
-		return
-	}
-
-	resource := proto.MsgType2ResourceMap[apiReq.Type]
-
-	if err = checkTicketCaps(&ticket, "API", resource); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "checkTicketCaps failed: " + err.Error()})
+	if ticket, ts, err = m.verifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
 		return
 	}
 
@@ -362,7 +294,7 @@ func (m *Server) genTicket(key []byte, serviceID string, IP string, caps []byte)
 	ticket.ServiceID = serviceID
 	ticket.SessionKey.Ctime = currentTime
 	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS(key)
-	ticket.Exp = currentTime + TicketDuration
+	ticket.Exp = currentTime + TicketAge
 	ticket.IP = IP
 	ticket.Caps = caps
 	return
@@ -537,34 +469,46 @@ func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err er
 	return
 }
 
-func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, tp string, resource string) (ticket cryptoutil.Ticket, ts int64, err error) {
-	var (
-		masterKey []byte
-	)
-
+func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
 	if err = proto.IsValidClientID(req.ClientID); err != nil {
+		err = fmt.Errorf("IsValidClientID failed: ", err.Error())
 		return
 	}
 
 	if err = proto.IsValidServiceID(req.ServiceID); err != nil {
+		err = fmt.Errorf("IsValidServiceID failed: " + err.Error())
 		return
 	}
 
 	if err = proto.IsValidMsgReqType(req.ServiceID, req.Type); err != nil {
+		err = fmt.Errorf("IsValidMsgReqType failed: " + err.Error())
 		return
 	}
 
-	masterKey = m.cluster.AuthServiceKey
+	if ticket, err = extractTicket(req.Ticket, key); err != nil {
+		err = fmt.Errorf("extractTicket failed: " + err.Error())
+		return
+	}
 
-	if ticket, err = extractTicket(req.Ticket, masterKey); err != nil {
+	if time.Now().Unix() >= ticket.Exp {
+		err = fmt.Errorf("ticket expired")
 		return
 	}
 
 	if ts, err = parseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
+		err = fmt.Errorf("parseVerifier failed: " + err.Error())
 		return
 	}
 
-	if err = checkTicketCaps(&ticket, tp, resource); err != nil {
+	if _, ok := proto.MsgType2ResourceMap[req.Type]; !ok {
+		err = fmt.Errorf("MsgType2ResourceMap failed")
+		return
+	}
+
+	resource := proto.MsgType2ResourceMap[req.Type]
+
+	if err = checkTicketCaps(&ticket, "API", resource); err != nil {
+		err = fmt.Errorf("checkTicketCaps failed: " + err.Error())
 		return
 	}
 

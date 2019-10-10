@@ -19,7 +19,7 @@ const (
 	TicketVersion     = 1
 	ClientMessage     = "Token"
 	TicketReqDuration = 10
-	TicketDuration    = 24 * 60 * 60
+	TicketAge         = 24 * 60 * 60
 	AuthService       = "AuthService"
 )
 
