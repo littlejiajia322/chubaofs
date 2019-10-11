@@ -3,7 +3,8 @@ package caps
 import (
 	"encoding/json"
 	"fmt"
-	//"github.com/chubaofs/chubaofs/util/cryptoutil"
+	"regexp"
+	"strings"
 )
 
 // Caps defines the capability type
@@ -12,13 +13,21 @@ type Caps struct {
 }
 
 // ContainCaps whether contain a capability with kind
-func (c *Caps) ContainCaps(kind string, cap string) (b bool) {
-	b = false
-	if kind == "API" {
+func (c *Caps) ContainCaps(cat string, cap string) (r bool) {
+	r = false
+	if cat == "API" {
 		for _, s := range c.API {
-			if s == "*" || s == cap {
-				b = true
-				return
+			a := strings.Split(s, ":")
+			b := strings.Split(cap, ":")
+			i := 0
+			for ; i < 3; i++ {
+				if a[i] != "*" && a[i] != b[i] {
+					break
+				}
+			}
+			if i == 3 {
+				r = true
+				break
 			}
 		}
 	}
@@ -27,12 +36,13 @@ func (c *Caps) ContainCaps(kind string, cap string) (b bool) {
 
 // Init init a Caps instance
 func (c *Caps) Init(b []byte) (err error) {
-	fmt.Printf("Init %s\n", string(b))
 	if err = json.Unmarshal(b, c); err != nil {
 		return
 	}
+	if err = c.check(); err != nil {
+		return
+	}
 	c.cleanDup()
-	fmt.Printf("Init %v\n", c)
 	return
 }
 
@@ -50,6 +60,17 @@ func (c *Caps) Union(caps *Caps) {
 	c.cleanDup()
 }
 
+func (c *Caps) check() (err error) {
+	re := regexp.MustCompile("^[A-Za-z0-9*]{1,20}:[A-Za-z0-9*]{1,20}:[A-Za-z0-9*]{1,20}$")
+	for _, cap := range c.API {
+		if !re.MatchString(cap) {
+			err = fmt.Errorf("invalid cap [%s]", cap)
+			return
+		}
+	}
+	return
+}
+
 // Delete delete caps
 func (c *Caps) Delete(caps *Caps) {
 	m := make(map[string]bool)
@@ -58,12 +79,7 @@ func (c *Caps) Delete(caps *Caps) {
 	}
 	c.API = []string{}
 	for _, item := range caps.API {
-		if item == "*" {
-			return
-		}
-		if _, ok := m[item]; ok {
-			delete(m, item)
-		}
+		delete(m, item)
 	}
 	for k := range m {
 		c.API = append(c.API, k)
@@ -72,15 +88,17 @@ func (c *Caps) Delete(caps *Caps) {
 
 func (c *Caps) cleanDup() {
 	API := make([]string, 0)
-	m := make(map[string]bool)
-	for _, item := range c.API {
-		if item == "*" {
-			c.API = []string{"*"}
-			return
+	m := make(map[string]map[string]bool)
+	for _, cap := range c.API {
+		a := strings.Split(cap, ":")
+		key1 := a[0]
+		key2 := a[1] + ":" + a[2]
+		if _, ok := m[key1]; !ok {
+			m[key1] = make(map[string]bool, 0)
 		}
-		if _, ok := m[item]; !ok {
-			API = append(API, item)
-			m[item] = true
+		if _, ok := m[key1][key2]; !ok {
+			API = append(API, cap)
+			m[key1][key2] = true
 		}
 	}
 	c.API = API

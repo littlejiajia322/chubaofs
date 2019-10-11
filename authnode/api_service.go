@@ -314,7 +314,7 @@ func (m *Server) getMasterKeyInfo(id string) (keyInfo *keystore.KeyInfo, err err
 	if id == proto.AuthServiceID {
 		keyInfo = &keystore.KeyInfo{
 			Key:  m.cluster.AuthServiceKey,
-			Caps: []byte(`{"API": ["*"]}`),
+			Caps: []byte(`{"API": ["*:*:*"]}`),
 		}
 	} else {
 		if keyInfo, err = m.cluster.GetKey(id); err != nil {
@@ -358,8 +358,6 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 		return
 	}
 
-	fmt.Printf("serviceID=%s serviceName=%s key=%d\n", resp.ServiceID, resp.ServiceID, len(serviceKey))
-
 	if resp.Ticket, err = cryptoutil.EncodeMessage(jticket, serviceKey); err != nil {
 		return
 	}
@@ -393,7 +391,7 @@ func parseVerifier(verifier string, key []byte) (ts int64, err error) {
 	ts = int64(binary.LittleEndian.Uint64(plainttext))
 
 	if time.Now().Unix()-ts >= TicketReqDuration {
-		err = fmt.Errorf("ticket req is timeout") // TODO
+		err = fmt.Errorf("req verifier is timeout") // TODO
 		return
 	}
 
@@ -505,9 +503,9 @@ func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, key []byte) (
 		return
 	}
 
-	resource := proto.MsgType2ResourceMap[req.Type]
+	rule := "auth:" + proto.MsgType2ResourceMap[req.Type] + "access"
 
-	if err = checkTicketCaps(&ticket, "API", resource); err != nil {
+	if err = checkTicketCaps(&ticket, "API", rule); err != nil {
 		err = fmt.Errorf("checkTicketCaps failed: " + err.Error())
 		return
 	}
