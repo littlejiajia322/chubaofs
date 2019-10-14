@@ -33,7 +33,7 @@ func (u *KeyInfo) Dump() (d string, err error) {
 		return
 	}
 
-	d = fmt.Sprintf("ID:%s\nKey:%s\nRole:%s\nCaps:%s\n", u.ID, cryptoutil.Base64Encode(u.Key), u.Role, caps.Dump())
+	d = fmt.Sprintf("\"id\":\"%s\"\n\"key\":\"%s\"\n\"role\":\"%s\"\n\"caps\":\"%s\"\n", u.ID, cryptoutil.Base64Encode(u.Key), u.Role, caps.Dump())
 	return
 }
 

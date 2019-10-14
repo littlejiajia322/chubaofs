@@ -59,6 +59,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	// TODO check whether jobj.ip == the IP from HTTP request
 	if message, err = m.genGetTicketAuthResp(&jobj, ts, r); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
 	}
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
@@ -110,10 +111,11 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 
 	if message, err = genAuthRaftNodeOpResp(&apiReq, ts, ticket.SessionKey.Key, msg); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthRaftNodeGenRespError, Msg: err.Error()})
+		return
 	}
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
-
+	return
 }
 
 func (m *Server) handleAddRaftNode(raftNodeInfo *proto.AuthRaftNodeInfo) (err error) {
@@ -182,12 +184,14 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 
 	if err = keyInfo.IsValidID(); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
 	}
 
 	switch apiReq.Type {
 	case proto.MsgAuthCreateKeyReq:
 		if err = keyInfo.IsValidKeyInfo(); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			return
 		}
 	case proto.MsgAuthDeleteKeyReq:
 	case proto.MsgAuthGetKeyReq:
@@ -196,9 +200,11 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	case proto.MsgAuthDeleteCapsReq:
 		if err = keyInfo.IsValidCaps(); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			return
 		}
 	default:
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid request messge type %x", int32(apiReq.Type)).Error()})
+		return
 	}
 
 	if ticket, ts, err = m.verifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
@@ -230,7 +236,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendOkReply(w, r, newSuccessHTTPAuthReply(message))
-
+	return
 }
 
 func (m *Server) handleCreateKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
@@ -503,9 +509,9 @@ func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, key []byte) (
 		return
 	}
 
-	rule := "auth:" + proto.MsgType2ResourceMap[req.Type] + "access"
+	rule := nodeType + capSeparator + proto.MsgType2ResourceMap[req.Type] + capSeparator + apiAction
 
-	if err = checkTicketCaps(&ticket, "API", rule); err != nil {
+	if err = checkTicketCaps(&ticket, nodeRsc, rule); err != nil {
 		err = fmt.Errorf("checkTicketCaps failed: " + err.Error())
 		return
 	}

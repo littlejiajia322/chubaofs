@@ -56,3 +56,10 @@ const (
 	keyAcronym   = "key"
 	ksPrefix     = keySeparator + keyAcronym + keySeparator
 )
+
+const (
+	capSeparator = ":"
+	nodeType     = "auth"
+	nodeRsc      = "API"
+	apiAction    = "access"
+)

@@ -49,7 +49,7 @@ func (c *Caps) Init(b []byte) (err error) {
 // Dump dump the content of Caps
 func (c *Caps) Dump() (d string) {
 	for _, s := range c.API {
-		d += fmt.Sprintf("API:%s\t", s)
+		d += fmt.Sprintf("API:%s,", s)
 	}
 	return
 }
