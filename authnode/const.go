@@ -16,11 +16,11 @@ package authnode
 
 // Keys in the request
 const (
-	TicketVersion     = 1
-	ClientMessage     = "Token"
-	TicketReqDuration = 10
-	TicketAge         = 24 * 60 * 60
-	AuthService       = "AuthService"
+	TicketVersion = 1
+	ClientMessage = "Token"
+	reqLiveLength = 10
+	TicketAge     = 24 * 60 * 60
+	AuthService   = "AuthService"
 )
 
 const (

@@ -389,14 +389,13 @@ func parseVerifier(verifier string, key []byte) (ts int64, err error) {
 		plainttext []byte
 	)
 
-	fmt.Printf("verifier=%s\n", verifier)
 	if plainttext, err = cryptoutil.DecodeMessage(verifier, key); err != nil {
 		return
 	}
 
 	ts = int64(binary.LittleEndian.Uint64(plainttext))
 
-	if time.Now().Unix()-ts >= TicketReqDuration {
+	if time.Now().Unix()-ts >= reqLiveLength { // mitigate replay attack
 		err = fmt.Errorf("req verifier is timeout") // TODO
 		return
 	}
