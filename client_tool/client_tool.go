@@ -21,6 +21,17 @@ import (
 	"github.com/chubaofs/chubaofs/util/keystore"
 )
 
+// requst path
+const (
+	CreateKey      = "createkey"
+	DeleteKey      = "deletekey"
+	GetKey         = "getkey"
+	AddCaps        = "addcaps"
+	DeleteCaps     = "deletecaps"
+	AddRaftNode    = "addraftnode"
+	RemoveRaftNode = "removeraftnode"
+)
+
 var (
 	isTicket bool
 	flaginfo flagInfo
@@ -58,7 +69,7 @@ type ticketFile struct {
 	Ticket    string `json:"ticket"`
 }
 
-func (m *ticketFile) dump(filename string) {
+func (m *ticketFile) dumpJSONFile(filename string) {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		panic(err)
@@ -158,7 +169,7 @@ func getTicket() {
 	}
 
 	ticketfile := getTicketFromAuth(&keyring)
-	ticketfile.dump(flaginfo.ticket.output)
+	ticketfile.dumpJSONFile(flaginfo.ticket.output)
 
 	return
 }
@@ -174,19 +185,19 @@ func accessAuthServer() {
 	)
 
 	switch flaginfo.api.request {
-	case "createkey":
+	case CreateKey:
 		msg = proto.MsgAuthCreateKeyReq
-	case "deletekey":
+	case DeleteKey:
 		msg = proto.MsgAuthDeleteKeyReq
-	case "getkey":
+	case GetKey:
 		msg = proto.MsgAuthGetKeyReq
-	case "addcaps":
+	case AddCaps:
 		msg = proto.MsgAuthAddCapsReq
-	case "deletecaps":
+	case DeleteCaps:
 		msg = proto.MsgAuthDeleteCapsReq
-	case "addraftnode":
+	case AddRaftNode:
 		msg = proto.MsgAuthAddRaftNodeReq
-	case "removeraftnode":
+	case RemoveRaftNode:
 		msg = proto.MsgAuthRemoveRaftNodeReq
 	default:
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
@@ -212,7 +223,7 @@ func accessAuthServer() {
 	dataCFG := config.LoadConfigFile(flaginfo.api.data)
 
 	switch flaginfo.api.request {
-	case "createkey":
+	case CreateKey:
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			KeyInfo: keystore.KeyInfo{
@@ -221,21 +232,21 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	case "deletekey":
+	case DeleteKey:
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			KeyInfo: keystore.KeyInfo{
 				ID: dataCFG.GetString("id"),
 			},
 		}
-	case "getkey":
+	case GetKey:
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			KeyInfo: keystore.KeyInfo{
 				ID: dataCFG.GetString("id"),
 			},
 		}
-	case "addcaps":
+	case AddCaps:
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			KeyInfo: keystore.KeyInfo{
@@ -243,7 +254,7 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	case "deletecaps":
+	case DeleteCaps:
 		message = proto.AuthAPIAccessReq{
 			APIReq: *apiReq,
 			KeyInfo: keystore.KeyInfo{
@@ -251,9 +262,9 @@ func accessAuthServer() {
 				Caps: []byte(dataCFG.GetString("caps")),
 			},
 		}
-	case "addraftnode":
+	case AddRaftNode:
 		fallthrough
-	case "removeraftnode":
+	case RemoveRaftNode:
 		message = proto.AuthRaftNodeReq{
 			APIReq: *apiReq,
 			RaftNodeInfo: proto.AuthRaftNodeInfo{
@@ -269,15 +280,15 @@ func accessAuthServer() {
 	fmt.Printf("\nbody: " + string(body) + "\n")
 
 	switch flaginfo.api.request {
-	case "createkey":
+	case CreateKey:
 		fallthrough
-	case "deletekey":
+	case DeleteKey:
 		fallthrough
-	case "getkey":
+	case GetKey:
 		fallthrough
-	case "addcaps":
+	case AddCaps:
 		fallthrough
-	case "deletecaps":
+	case DeleteCaps:
 		var resp proto.AuthAPIAccessResp
 		if resp, err = proto.ParseAuthAPIAccessResp(body, sessionKey); err != nil {
 			panic(err)
@@ -285,13 +296,13 @@ func accessAuthServer() {
 
 		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
 
-		if res, err = resp.KeyInfo.Dump(); err != nil {
+		if res, err = resp.KeyInfo.DumpJSONFile(flaginfo.api.output); err != nil {
 			panic(err)
 		}
 		fmt.Printf(res + "\n")
-	case "addraftnode":
+	case AddRaftNode:
 		fallthrough
-	case "removeraftnode":
+	case RemoveRaftNode:
 		var resp proto.AuthRaftNodeResp
 		if resp, err = proto.ParseAuthRaftNodeResp(body, sessionKey); err != nil {
 			panic(err)
@@ -370,7 +381,7 @@ func main() {
 	if isTicket {
 		key := ticketCmd.String("keyfile", "", "path to key file")
 		url := ticketCmd.String("url", "", "api url")
-		file := ticketCmd.String("output", "", "path to ticket file")
+		file := ticketCmd.String("output", "", "output path to ticket file")
 		ticketCmd.Parse(os.Args[2:])
 		flaginfo.ticket.key = *key
 		flaginfo.ticket.url = *url
@@ -380,7 +391,7 @@ func main() {
 		ticket := apiCmd.String("ticketfile", "", "path to ticket file")
 		url := apiCmd.String("url", "", "api url")
 		data := apiCmd.String("data", "", "request data file")
-		output := apiCmd.String("output", "", "output path")
+		output := apiCmd.String("output", "", "output path to keyring file")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
 		flaginfo.api.url = *url

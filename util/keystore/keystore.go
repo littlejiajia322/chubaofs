@@ -3,10 +3,11 @@ package keystore
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 
 	"github.com/chubaofs/chubaofs/util/caps"
-	"github.com/chubaofs/chubaofs/util/cryptoutil"
 )
 
 var roleSet = map[string]bool{
@@ -23,17 +24,36 @@ type KeyInfo struct {
 	Caps []byte `json:"caps"`
 }
 
-// Dump dump KeyInfo
-func (u *KeyInfo) Dump() (d string, err error) {
-	var (
-		caps caps.Caps
-	)
-
-	if err = json.Unmarshal(u.Caps, &caps); err != nil {
+// DumpJSONFile dump KeyInfo to json format
+func (u *KeyInfo) DumpJSONFile(filename string) (d string, err error) {
+	dumpInfo := struct {
+		ID   string `json:"id"`
+		Key  []byte `json:"key"`
+		Ts   int64  `json:"create_ts"`
+		Role string `json:"role"`
+		Caps string `json:"caps"`
+	}{
+		u.ID,
+		u.Key,
+		u.Ts,
+		u.Role,
+		string(u.Caps),
+	}
+	data, err := json.MarshalIndent(dumpInfo, "", "  ")
+	if err != nil {
 		return
 	}
 
-	d = fmt.Sprintf("\"id\":\"%s\"\n\"key\":\"%s\"\n\"role\":\"%s\"\n\"caps\":\"%s\"\n", u.ID, cryptoutil.Base64Encode(u.Key), u.Role, caps.Dump())
+	file, err := os.Create(filename)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	_, err = io.WriteString(file, string(data))
+	if err != nil {
+		return
+	}
 	return
 }
 
