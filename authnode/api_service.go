@@ -1,7 +1,6 @@
 package authnode
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 
 	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
-	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/iputil"
@@ -46,7 +44,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ts, err = parseVerifier(jobj.Verifier, key); err != nil {
+	if ts, err = proto.ParseVerifier(jobj.Verifier, key); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -89,7 +87,7 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	apiReq := jobj.APIReq
 	raftNodeInfo := jobj.RaftNodeInfo
 
-	if ticket, ts, err = m.verifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
+	if ticket, ts, err = proto.VerifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
 		return
 	}
@@ -207,7 +205,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ticket, ts, err = m.verifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
+	if ticket, ts, err = proto.VerifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
 		return
 	}
@@ -384,25 +382,6 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 	return
 }
 
-func parseVerifier(verifier string, key []byte) (ts int64, err error) {
-	var (
-		plainttext []byte
-	)
-
-	if plainttext, err = cryptoutil.DecodeMessage(verifier, key); err != nil {
-		return
-	}
-
-	ts = int64(binary.LittleEndian.Uint64(plainttext))
-
-	if time.Now().Unix()-ts >= reqLiveLength { // mitigate replay attack
-		err = fmt.Errorf("req verifier is timeout") // TODO
-		return
-	}
-
-	return
-}
-
 func validateGetTicketReqFormat(req *proto.AuthGetTicketReq) (err error) {
 	if err = proto.IsValidClientID(req.ClientID); err != nil {
 		return
@@ -438,80 +417,6 @@ func genAuthAPIAccessResp(req *proto.APIAccessReq, keyInfo *keystore.KeyInfo, ts
 
 	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
 		err = fmt.Errorf("encdoe message for response failed %s", err.Error())
-		return
-	}
-
-	return
-}
-
-func extractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error) {
-	var (
-		plaintext []byte
-	)
-
-	if plaintext, err = cryptoutil.DecodeMessage(str, key); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(plaintext, &ticket); err != nil {
-		return
-	}
-
-	return
-}
-
-func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err error) {
-	c := new(caps.Caps)
-	if err = c.Init(ticket.Caps); err != nil {
-		return
-	}
-	if b := c.ContainCaps(kind, cap); !b {
-		err = fmt.Errorf("no permission to access api")
-		return
-	}
-	return
-}
-
-func (m *Server) verifyAPIAccessReqCommon(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
-	if err = proto.IsValidClientID(req.ClientID); err != nil {
-		err = fmt.Errorf("IsValidClientID failed: ", err.Error())
-		return
-	}
-
-	if err = proto.IsValidServiceID(req.ServiceID); err != nil {
-		err = fmt.Errorf("IsValidServiceID failed: " + err.Error())
-		return
-	}
-
-	if err = proto.IsValidMsgReqType(req.ServiceID, req.Type); err != nil {
-		err = fmt.Errorf("IsValidMsgReqType failed: " + err.Error())
-		return
-	}
-
-	if ticket, err = extractTicket(req.Ticket, key); err != nil {
-		err = fmt.Errorf("extractTicket failed: " + err.Error())
-		return
-	}
-
-	if time.Now().Unix() >= ticket.Exp {
-		err = fmt.Errorf("ticket expired")
-		return
-	}
-
-	if ts, err = parseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
-		err = fmt.Errorf("parseVerifier failed: " + err.Error())
-		return
-	}
-
-	if _, ok := proto.MsgType2ResourceMap[req.Type]; !ok {
-		err = fmt.Errorf("MsgType2ResourceMap failed")
-		return
-	}
-
-	rule := nodeType + capSeparator + proto.MsgType2ResourceMap[req.Type] + capSeparator + apiAction
-
-	if err = checkTicketCaps(&ticket, nodeRsc, rule); err != nil {
-		err = fmt.Errorf("checkTicketCaps failed: " + err.Error())
 		return
 	}
 

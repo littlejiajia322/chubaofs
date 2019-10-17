@@ -296,10 +296,16 @@ func accessAuthServer() {
 
 		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
 
-		if res, err = resp.KeyInfo.DumpJSONFile(flaginfo.api.output); err != nil {
-			panic(err)
+		if flaginfo.api.request == CreateKey {
+			if err = resp.KeyInfo.DumpJSONFile(flaginfo.api.output); err != nil {
+				panic(err)
+			}
+		} else {
+			if res, err = resp.KeyInfo.DumpJSONStr(); err != nil {
+				panic(err)
+			}
+			fmt.Printf(res + "\n")
 		}
-		fmt.Printf(res + "\n")
 	case AddRaftNode:
 		fallthrough
 	case RemoveRaftNode:

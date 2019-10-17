@@ -24,8 +24,30 @@ type KeyInfo struct {
 	Caps []byte `json:"caps"`
 }
 
-// DumpJSONFile dump KeyInfo to json format
-func (u *KeyInfo) DumpJSONFile(filename string) (d string, err error) {
+// DumpJSONFile dump KeyInfo to file in json format
+func (u *KeyInfo) DumpJSONFile(filename string) (err error) {
+	var (
+		data string
+	)
+	if data, err = u.DumpJSONStr(); err != nil {
+		return
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	_, err = io.WriteString(file, data)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// DumpJSONStr dump KeyInfo to string in json format
+func (u *KeyInfo) DumpJSONStr() (r string, err error) {
 	dumpInfo := struct {
 		ID   string `json:"id"`
 		Key  []byte `json:"key"`
@@ -43,17 +65,7 @@ func (u *KeyInfo) DumpJSONFile(filename string) (d string, err error) {
 	if err != nil {
 		return
 	}
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-
-	_, err = io.WriteString(file, string(data))
-	if err != nil {
-		return
-	}
+	r = string(data)
 	return
 }
 

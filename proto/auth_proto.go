@@ -15,10 +15,13 @@
 package proto
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"time"
 
+	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/keystore"
 )
@@ -32,27 +35,30 @@ type MsgType uint32
 // Nonce defines the nonce to mitigate the replay attack
 type Nonce uint64
 
+const (
+	capSeparator  = ":"
+	nodeType      = "auth"
+	nodeRsc       = "API"
+	apiAction     = "access"
+	reqLiveLength = 10
+)
+
 // api
 const (
 	// Client APIs
 	ClientGetTicket = "/client/getticket"
 
 	// Admin APIs
-	AdminCreateKey      = "/admin/createkey"
-	AdminDeleteKey      = "/admin/deletekey"
-	AdminGetKey         = "/admin/getkey"
-	AdminAddCaps        = "/admin/addcaps"
-	AdminDeleteCaps     = "/admin/deletecaps"
-	AdminGetCaps        = "/admin/getcaps"
-	AdminAddRaftNode    = "/admin/addraftnode"
-	AdminRemoveRaftNode = "/admin/removeraftnode"
+	AdminCreateKey  = "/admin/createkey"
+	AdminDeleteKey  = "/admin/deletekey"
+	AdminGetKey     = "/admin/getkey"
+	AdminAddCaps    = "/admin/addcaps"
+	AdminDeleteCaps = "/admin/deletecaps"
+	AdminGetCaps    = "/admin/getcaps"
 
 	//raft node APIs
-
-	// Node APIs
-
-	// Operation response
-
+	AdminAddRaftNode    = "/admin/addraftnode"
+	AdminRemoveRaftNode = "/admin/removeraftnode"
 )
 
 const (
@@ -224,6 +230,7 @@ type AuthAPIAccessResp struct {
 	KeyInfo keystore.KeyInfo `json:"key_info"`
 }
 
+// AuthRaftNodeInfo defines raft node information
 type AuthRaftNodeInfo struct {
 	ID   uint64 `json:"id"`
 	Addr string `json:"addr"`
@@ -344,6 +351,101 @@ func ParseAuthRaftNodeResp(body []byte, key []byte) (resp AuthRaftNodeResp, err 
 	}
 
 	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return
+}
+
+func extractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error) {
+	var (
+		plaintext []byte
+	)
+
+	if plaintext, err = cryptoutil.DecodeMessage(str, key); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &ticket); err != nil {
+		return
+	}
+
+	return
+}
+
+func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err error) {
+	c := new(caps.Caps)
+	if err = c.Init(ticket.Caps); err != nil {
+		return
+	}
+	if b := c.ContainCaps(kind, cap); !b {
+		err = fmt.Errorf("no permission to access api")
+		return
+	}
+	return
+}
+
+// ParseVerifier checks the verifier structure for replay attack mitigation
+func ParseVerifier(verifier string, key []byte) (ts int64, err error) {
+	var (
+		plainttext []byte
+	)
+
+	if plainttext, err = cryptoutil.DecodeMessage(verifier, key); err != nil {
+		return
+	}
+
+	ts = int64(binary.LittleEndian.Uint64(plainttext))
+
+	if time.Now().Unix()-ts >= reqLiveLength { // mitigate replay attack
+		err = fmt.Errorf("req verifier is timeout [%d] >= [%d]", time.Now().Unix()-ts, reqLiveLength)
+		return
+	}
+
+	return
+}
+
+// VerifyAPIAccessReqCommon verify the validity of restful API access
+func VerifyAPIAccessReqCommon(req *APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
+	if err = IsValidClientID(req.ClientID); err != nil {
+		err = fmt.Errorf("IsValidClientID failed: %s", err.Error())
+		return
+	}
+
+	if err = IsValidServiceID(req.ServiceID); err != nil {
+		err = fmt.Errorf("IsValidServiceID failed: %s", err.Error())
+		return
+	}
+
+	if err = IsValidMsgReqType(req.ServiceID, req.Type); err != nil {
+		err = fmt.Errorf("IsValidMsgReqType failed: %s", err.Error())
+		return
+	}
+
+	if ticket, err = extractTicket(req.Ticket, key); err != nil {
+		err = fmt.Errorf("extractTicket failed: %s", err.Error())
+		return
+	}
+
+	if time.Now().Unix() >= ticket.Exp {
+		err = fmt.Errorf("ticket expired")
+		return
+	}
+
+	if ts, err = ParseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
+		err = fmt.Errorf("parseVerifier failed: %s", err.Error())
+		return
+	}
+
+	if _, ok := MsgType2ResourceMap[req.Type]; !ok {
+		err = fmt.Errorf("MsgType2ResourceMap failed")
+		return
+	}
+
+	rule := nodeType + capSeparator + MsgType2ResourceMap[req.Type] + capSeparator + apiAction
+
+	if err = checkTicketCaps(&ticket, nodeRsc, rule); err != nil {
+		err = fmt.Errorf("checkTicketCaps failed: %s", err.Error())
 		return
 	}
 

@@ -18,7 +18,6 @@ package authnode
 const (
 	TicketVersion = 1
 	ClientMessage = "Token"
-	reqLiveLength = 10
 	TicketAge     = 24 * 60 * 60
 	AuthService   = "AuthService"
 )
@@ -55,11 +54,4 @@ const (
 	keySeparator = "#"
 	keyAcronym   = "key"
 	ksPrefix     = keySeparator + keyAcronym + keySeparator
-)
-
-const (
-	capSeparator = ":"
-	nodeType     = "auth"
-	nodeRsc      = "API"
-	apiAction    = "access"
 )
