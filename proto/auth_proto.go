@@ -262,6 +262,8 @@ func IsValidMsgReqType(serviceID string, msgType MsgType) (err error) {
 	b := false
 	switch serviceID {
 	case "AuthService":
+		fallthrough
+	case "MasterService":
 		if msgType|MsgAuthBase != 0 {
 			b = true
 		}

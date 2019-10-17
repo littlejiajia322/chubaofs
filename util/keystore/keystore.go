@@ -71,7 +71,7 @@ func (u *KeyInfo) DumpJSONStr() (r string, err error) {
 
 // IsValidID check the validity of ID
 func (u *KeyInfo) IsValidID() (err error) {
-	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
+	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,20}$")
 	if !re.MatchString(u.ID) {
 		err = fmt.Errorf("invalid ID [%s]", u.ID)
 		return

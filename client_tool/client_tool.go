@@ -23,6 +23,7 @@ import (
 
 // requst path
 const (
+	GetTicket      = "getticket"
 	CreateKey      = "createkey"
 	DeleteKey      = "deletekey"
 	GetKey         = "getkey"
@@ -32,20 +33,33 @@ const (
 	RemoveRaftNode = "removeraftnode"
 )
 
+var action2PathMap = map[string]string{
+	GetTicket:      proto.ClientGetTicket,
+	CreateKey:      proto.AdminCreateKey,
+	DeleteKey:      proto.AdminDeleteKey,
+	GetKey:         proto.AdminGetKey,
+	AddCaps:        proto.AdminAddCaps,
+	DeleteCaps:     proto.AdminDeleteCaps,
+	AddRaftNode:    proto.AdminAddRaftNode,
+	RemoveRaftNode: proto.AdminRemoveRaftNode,
+}
+
 var (
 	isTicket bool
 	flaginfo flagInfo
 )
 
 type ticketFlag struct {
-	key    string
-	url    string
-	output string
+	key     string
+	host    string
+	output  string
+	request string
+	service string
 }
 
 type apiFlag struct {
 	ticket  string
-	url     string
+	host    string
 	service string
 	request string
 	data    string
@@ -96,7 +110,6 @@ func sendReq(u string, data interface{}) (res []byte) {
 	}
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
-	//resp, err := http.PostForm(u, url.Values{authnode.ClientMessage: {message}})
 	resp, err := http.PostForm(u, url.Values{"Token": {message}})
 	if err != nil {
 		panic(err)
@@ -132,14 +145,17 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 	messageStruct := proto.AuthGetTicketReq{
 		Type:      proto.MsgAuthTicketReq,
 		ClientID:  keyring.ID,
-		ServiceID: proto.AuthServiceID,
+		ServiceID: flaginfo.ticket.service,
 	}
 
 	if messageStruct.Verifier, ts, err = genVerifier(keyring.Key); err != nil {
 		panic(err)
 	}
 
-	body := sendReq(flaginfo.ticket.url, messageStruct)
+	url := "http://" + flaginfo.ticket.host + action2PathMap[flaginfo.ticket.request]
+	fmt.Printf("url=%s\n", url)
+
+	body := sendReq(url, messageStruct)
 
 	fmt.Printf("\n" + string(body) + "\n")
 
@@ -147,7 +163,7 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		panic(err)
 	}
 
-	verifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, keyring.ID, proto.AuthServiceID, ts)
+	verifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, keyring.ID, flaginfo.ticket.service, ts)
 
 	ticketfile.Ticket = msgResp.Ticket
 	ticketfile.ServiceID = msgResp.ServiceID
@@ -276,7 +292,10 @@ func accessAuthServer() {
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
 
-	body := sendReq(flaginfo.api.url, message)
+	url := "http://" + flaginfo.api.host + action2PathMap[flaginfo.api.request]
+	fmt.Printf("url=%s\n", url)
+
+	body := sendReq(url, message)
 	fmt.Printf("\nbody: " + string(body) + "\n")
 
 	switch flaginfo.api.request {
@@ -363,7 +382,7 @@ func verifyRespComm(apiResp *proto.APIAccessResp, msg proto.MsgType, clientID st
 
 func accessAPI() {
 	switch flaginfo.api.service {
-	case "auth":
+	case proto.AuthServiceID:
 		accessAuthServer()
 	default:
 		panic(fmt.Errorf("server type error [%s]", flaginfo.api.service))
@@ -386,26 +405,36 @@ func main() {
 
 	if isTicket {
 		key := ticketCmd.String("keyfile", "", "path to key file")
-		url := ticketCmd.String("url", "", "api url")
+		host := ticketCmd.String("host", "", "api host")
 		file := ticketCmd.String("output", "", "output path to ticket file")
 		ticketCmd.Parse(os.Args[2:])
 		flaginfo.ticket.key = *key
-		flaginfo.ticket.url = *url
+		flaginfo.ticket.host = *host
 		flaginfo.ticket.output = *file
+		if len(ticketCmd.Args()) >= 2 {
+			flaginfo.ticket.request = ticketCmd.Args()[0]
+			flaginfo.ticket.service = ticketCmd.Args()[1]
+			if _, ok := action2PathMap[flaginfo.ticket.request]; !ok {
+				panic(fmt.Errorf("illegal parameter %s", flaginfo.ticket.request))
+			}
+		}
 		getTicket()
 	} else {
 		ticket := apiCmd.String("ticketfile", "", "path to ticket file")
-		url := apiCmd.String("url", "", "api url")
+		host := apiCmd.String("host", "", "api host")
 		data := apiCmd.String("data", "", "request data file")
 		output := apiCmd.String("output", "", "output path to keyring file")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
-		flaginfo.api.url = *url
+		flaginfo.api.host = *host
 		flaginfo.api.data = *data
 		flaginfo.api.output = *output
 		if len(apiCmd.Args()) >= 2 {
 			flaginfo.api.service = apiCmd.Args()[0]
 			flaginfo.api.request = apiCmd.Args()[1]
+			if _, ok := action2PathMap[flaginfo.api.request]; !ok {
+				panic(fmt.Errorf("illegal parameter %s", flaginfo.api.request))
+			}
 		} else {
 			panic(fmt.Errorf("requst parameter needed"))
 		}
