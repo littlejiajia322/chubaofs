@@ -39,7 +39,7 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if key, err = m.getMasterKey(jobj.ClientID); err != nil {
+	if key, err = m.getSecretKey(jobj.ClientID); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -252,7 +252,7 @@ func (m *Server) handleDeleteKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyIn
 }
 
 func (m *Server) handleGetKey(keyInfo *keystore.KeyInfo) (res *keystore.KeyInfo, err error) {
-	if res, err = m.getMasterKeyInfo(keyInfo.ID); err != nil {
+	if res, err = m.getSecretKeyInfo(keyInfo.ID); err != nil {
 		return
 	}
 	return
@@ -304,17 +304,17 @@ func (m *Server) genTicket(key []byte, serviceID string, IP string, caps []byte)
 	return
 }
 
-func (m *Server) getMasterKey(id string) (key []byte, err error) {
+func (m *Server) getSecretKey(id string) (key []byte, err error) {
 	var (
 		keyInfo *keystore.KeyInfo
 	)
-	if keyInfo, err = m.getMasterKeyInfo(id); err != nil {
+	if keyInfo, err = m.getSecretKeyInfo(id); err != nil {
 		return
 	}
 	return keyInfo.Key, err
 }
 
-func (m *Server) getMasterKeyInfo(id string) (keyInfo *keystore.KeyInfo, err error) {
+func (m *Server) getSecretKeyInfo(id string) (keyInfo *keystore.KeyInfo, err error) {
 	if id == proto.AuthServiceID {
 		keyInfo = &keystore.KeyInfo{
 			Key:  m.cluster.AuthServiceKey,
@@ -345,13 +345,13 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 	// increase ts by one for client verify server
 	resp.Verifier = ts + 1
 
-	if keyInfo, err = m.getMasterKeyInfo(resp.ClientID); err != nil {
+	if keyInfo, err = m.getSecretKeyInfo(resp.ClientID); err != nil {
 		return
 	}
 	caps = keyInfo.Caps
 
 	// Use service key to encrypt ticket
-	if serviceKey, err = m.getMasterKey(req.ServiceID); err != nil {
+	if serviceKey, err = m.getSecretKey(req.ServiceID); err != nil {
 		return
 	}
 
@@ -370,8 +370,8 @@ func (m *Server) genGetTicketAuthResp(req *proto.AuthGetTicketReq, ts int64, r *
 		return
 	}
 
-	// Use client master key to encrypt response message
-	if keyInfo, err = m.getMasterKeyInfo(resp.ClientID); err != nil {
+	// Use client secret key to encrypt response message
+	if keyInfo, err = m.getSecretKeyInfo(resp.ClientID); err != nil {
 		return
 	}
 	clientKey = keyInfo.Key

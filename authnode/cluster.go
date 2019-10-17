@@ -47,7 +47,7 @@ func (c *Cluster) scheduleTask() {
 	c.scheduleToLoadKeystore()
 }
 
-func (c *Cluster) masterAddr() (addr string) {
+func (c *Cluster) authAddr() (addr string) {
 	return c.leaderInfo.addr
 }
 
@@ -115,7 +115,7 @@ func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keyst
 		goto errHandler
 	}
 	keyInfo.Ts = time.Now().Unix()
-	keyInfo.Key = cryptoutil.GenMasterKey([]byte(c.AuthServiceKey), keyInfo.Ts, id)
+	keyInfo.Key = cryptoutil.GenSecretKey([]byte(c.AuthServiceKey), keyInfo.Ts, id)
 	if err = c.syncAddKey(keyInfo); err != nil {
 		goto errHandler
 	}
