@@ -37,9 +37,6 @@ type Nonce uint64
 
 const (
 	capSeparator  = ":"
-	nodeType      = "auth"
-	nodeRsc       = "API"
-	apiAction     = "access"
 	reqLiveLength = 10
 )
 
@@ -167,14 +164,14 @@ type HTTPAuthReply struct {
 
 // MsgType2ResourceMap define the mapping from message type to resource
 var MsgType2ResourceMap = map[MsgType]string{
-	MsgAuthCreateKeyReq:      "createkey",
-	MsgAuthDeleteKeyReq:      "deletekey",
-	MsgAuthGetKeyReq:         "getkey",
-	MsgAuthAddCapsReq:        "addcaps",
-	MsgAuthDeleteCapsReq:     "deletecaps",
-	MsgAuthGetCapsReq:        "getcaps",
-	MsgAuthAddRaftNodeReq:    "addnode",
-	MsgAuthRemoveRaftNodeReq: "removenode",
+	MsgAuthCreateKeyReq:      "auth:createkey",
+	MsgAuthDeleteKeyReq:      "auth:deletekey",
+	MsgAuthGetKeyReq:         "auth:getkey",
+	MsgAuthAddCapsReq:        "auth:addcaps",
+	MsgAuthDeleteCapsReq:     "auth:deletecaps",
+	MsgAuthGetCapsReq:        "auth:getcaps",
+	MsgAuthAddRaftNodeReq:    "auth:addnode",
+	MsgAuthRemoveRaftNodeReq: "auth:removenode",
 }
 
 // AuthGetTicketReq defines the message from client to authnode
@@ -407,8 +404,8 @@ func ParseVerifier(verifier string, key []byte) (ts int64, err error) {
 	return
 }
 
-// VerifyAPIAccessReqCommon verify the validity of restful API access
-func VerifyAPIAccessReqCommon(req *APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
+// VerifyAPIAccessReqIDs verify the req IDs
+func VerifyAPIAccessReqIDs(req *APIAccessReq) (err error) {
 	if err = IsValidClientID(req.ClientID); err != nil {
 		err = fmt.Errorf("IsValidClientID failed: %s", err.Error())
 		return
@@ -423,7 +420,11 @@ func VerifyAPIAccessReqCommon(req *APIAccessReq, key []byte) (ticket cryptoutil.
 		err = fmt.Errorf("IsValidMsgReqType failed: %s", err.Error())
 		return
 	}
+	return
+}
 
+// ExtractAPIAccessTicket verify ticket validity
+func ExtractAPIAccessTicket(req *APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
 	if ticket, err = extractTicket(req.Ticket, key); err != nil {
 		err = fmt.Errorf("extractTicket failed: %s", err.Error())
 		return
@@ -439,17 +440,21 @@ func VerifyAPIAccessReqCommon(req *APIAccessReq, key []byte) (ticket cryptoutil.
 		return
 	}
 
-	if _, ok := MsgType2ResourceMap[req.Type]; !ok {
-		err = fmt.Errorf("MsgType2ResourceMap failed")
+	return
+}
+
+// CheckAPIAccessCaps checks capability
+func CheckAPIAccessCaps(ticket *cryptoutil.Ticket, rscType string, mp MsgType, action string) (err error) {
+	if _, ok := MsgType2ResourceMap[mp]; !ok {
+		err = fmt.Errorf("MsgType2ResourceMap key not found [%d]", mp)
 		return
 	}
 
-	rule := nodeType + capSeparator + MsgType2ResourceMap[req.Type] + capSeparator + apiAction
+	rule := MsgType2ResourceMap[mp] + capSeparator + action
 
-	if err = checkTicketCaps(&ticket, nodeRsc, rule); err != nil {
+	if err = checkTicketCaps(ticket, rscType, rule); err != nil {
 		err = fmt.Errorf("checkTicketCaps failed: %s", err.Error())
 		return
 	}
-
 	return
 }

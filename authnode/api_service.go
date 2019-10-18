@@ -19,6 +19,12 @@ import (
 	"fmt"
 )
 
+const (
+	nodeType  = "auth"
+	apiRsc    = "API"
+	apiAccess = "access"
+)
+
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	var (
 		plaintext []byte
@@ -87,8 +93,18 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	apiReq := jobj.APIReq
 	raftNodeInfo := jobj.RaftNodeInfo
 
-	if ticket, ts, err = proto.VerifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
+	if err = proto.VerifyAPIAccessReqIDs(&apiReq); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
+		return
+	}
+
+	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthServiceKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
+		return
+	}
+
+	if err = proto.CheckAPIAccessCaps(&ticket, apiRsc, apiReq.Type, apiAccess); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}
 
@@ -205,8 +221,18 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ticket, ts, err = proto.VerifyAPIAccessReqCommon(&apiReq, m.cluster.AuthServiceKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "verify API Access req common failed: " + err.Error()})
+	if err = proto.VerifyAPIAccessReqIDs(&apiReq); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
+		return
+	}
+
+	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthServiceKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
+		return
+	}
+
+	if err = proto.CheckAPIAccessCaps(&ticket, apiRsc, apiReq.Type, apiAccess); err != nil {
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}
 
