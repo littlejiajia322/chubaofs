@@ -20,9 +20,7 @@ import (
 )
 
 const (
-	nodeType  = "auth"
-	apiRsc    = "API"
-	apiAccess = "access"
+	nodeType = "auth"
 )
 
 func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +101,7 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = proto.CheckAPIAccessCaps(&ticket, apiRsc, apiReq.Type, apiAccess); err != nil {
+	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, apiReq.Type, proto.APIAccess); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}
@@ -231,7 +229,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = proto.CheckAPIAccessCaps(&ticket, apiRsc, apiReq.Type, apiAccess); err != nil {
+	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, apiReq.Type, proto.APIAccess); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}

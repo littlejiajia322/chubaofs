@@ -36,6 +36,8 @@ type MsgType uint32
 type Nonce uint64
 
 const (
+	APIRsc        = "API"
+	APIAccess     = "access"
 	capSeparator  = ":"
 	reqLiveLength = 10
 )
