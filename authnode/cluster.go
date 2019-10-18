@@ -27,7 +27,8 @@ type Cluster struct {
 	keystore            *map[string]*keystore.KeyInfo
 	ksMutex             sync.RWMutex // keystore mutex
 	opKeyMutex          sync.RWMutex // operations on key mutex
-	AuthServiceKey      []byte
+	AuthSecretKey       []byte
+	AuthRootKey         []byte
 }
 
 func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition raftstore.Partition, cfg *clusterConfig) (c *Cluster) {
@@ -115,7 +116,7 @@ func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keyst
 		goto errHandler
 	}
 	keyInfo.Ts = time.Now().Unix()
-	keyInfo.Key = cryptoutil.GenSecretKey([]byte(c.AuthServiceKey), keyInfo.Ts, id)
+	keyInfo.Key = cryptoutil.GenSecretKey([]byte(c.AuthRootKey), keyInfo.Ts, id)
 	if err = c.syncAddKey(keyInfo); err != nil {
 		goto errHandler
 	}

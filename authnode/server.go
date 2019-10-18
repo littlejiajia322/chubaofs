@@ -62,7 +62,8 @@ const (
 	DefaultRetainLogs = 20000
 	cfgTickInterval   = "tickInterval"
 	cfgElectionTick   = "electionTick"
-	AuthServiceKey    = "authServiceKey"
+	AuthSecretKey     = "authServiceKey"
+	AuthRootKey       = "authRootKey"
 )
 
 // NewServer creates a new server
@@ -169,11 +170,16 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	//exporter.Init(ModuleName, cfg)
 	m.cluster.partition = m.partition
 
-	AuthServiceKey := cfg.GetString(AuthServiceKey)
-	if m.cluster.AuthServiceKey, err = cryptoutil.Base64Decode(AuthServiceKey); err != nil {
-		return fmt.Errorf("%v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthServiceKey)
+	AuthSecretKey := cfg.GetString(AuthSecretKey)
+	if m.cluster.AuthSecretKey, err = cryptoutil.Base64Decode(AuthSecretKey); err != nil {
+		return fmt.Errorf("%v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthSecretKey)
 	}
-	fmt.Printf("server authServiceKey len=%d\n", len(m.cluster.AuthServiceKey))
+
+	AuthRootKey := cfg.GetString(AuthRootKey)
+	if m.cluster.AuthRootKey, err = cryptoutil.Base64Decode(AuthRootKey); err != nil {
+		return fmt.Errorf("%v,err: auth root Key invalid=%s", proto.ErrInvalidCfg, AuthRootKey)
+	}
+
 	//m.cluster.idAlloc.partition = m.partition
 	m.cluster.scheduleTask()
 	m.startHTTPService()

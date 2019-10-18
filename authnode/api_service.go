@@ -96,7 +96,7 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthServiceKey); err != nil {
+	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthSecretKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
 		return
 	}
@@ -224,7 +224,7 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthServiceKey); err != nil {
+	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthSecretKey); err != nil {
 		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
 		return
 	}
@@ -341,7 +341,7 @@ func (m *Server) getSecretKey(id string) (key []byte, err error) {
 func (m *Server) getSecretKeyInfo(id string) (keyInfo *keystore.KeyInfo, err error) {
 	if id == proto.AuthServiceID {
 		keyInfo = &keystore.KeyInfo{
-			Key:  m.cluster.AuthServiceKey,
+			Key:  m.cluster.AuthSecretKey,
 			Caps: []byte(`{"API": ["*:*:*"]}`),
 		}
 	} else {
