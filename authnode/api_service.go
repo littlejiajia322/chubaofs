@@ -201,6 +201,10 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 
 	switch apiReq.Type {
 	case proto.MsgAuthCreateKeyReq:
+		if keyInfo.ID == proto.AuthServiceID {
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "AuthServiceID is reserved"})
+			return
+		}
 		if err = keyInfo.IsValidKeyInfo(); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 			return
