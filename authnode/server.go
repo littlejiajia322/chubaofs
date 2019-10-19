@@ -2,6 +2,7 @@ package authnode
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http/httputil"
 	"strconv"
 	"sync"
@@ -12,9 +13,7 @@ import (
 	"github.com/chubaofs/chubaofs/util/config"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 
-	//"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/errors"
-	//"github.com/chubaofs/chubaofs/util/exporter"
 	"github.com/chubaofs/chubaofs/util/log"
 )
 
@@ -47,6 +46,10 @@ type Server struct {
 	metaReady    bool
 }
 
+// TLSConfig represents the tls configuration
+type TLSConfig struct {
+}
+
 // configuration keys
 const (
 	ClusterName       = "clusterName"
@@ -64,11 +67,11 @@ const (
 	cfgElectionTick   = "electionTick"
 	AuthSecretKey     = "authServiceKey"
 	AuthRootKey       = "authRootKey"
+	EnableHTTPS       = "enableHTTPS"
 )
 
 // NewServer creates a new server
 func NewServer() *Server {
-	fmt.Printf("New auth Server\n")
 	return &Server{}
 }
 
@@ -172,12 +175,24 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 
 	AuthSecretKey := cfg.GetString(AuthSecretKey)
 	if m.cluster.AuthSecretKey, err = cryptoutil.Base64Decode(AuthSecretKey); err != nil {
-		return fmt.Errorf("%v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthSecretKey)
+		return fmt.Errorf("action[Start] failed %v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthSecretKey)
 	}
 
 	AuthRootKey := cfg.GetString(AuthRootKey)
 	if m.cluster.AuthRootKey, err = cryptoutil.Base64Decode(AuthRootKey); err != nil {
-		return fmt.Errorf("%v,err: auth root Key invalid=%s", proto.ErrInvalidCfg, AuthRootKey)
+		return fmt.Errorf("action[Start] failed %v,err: auth root Key invalid=%s", proto.ErrInvalidCfg, AuthRootKey)
+	}
+
+	if cfg.GetBool(EnableHTTPS) == true {
+		m.cluster.PKIKey.EnableHTTPS = true
+		if m.cluster.PKIKey.AuthRootPublicKey, err = ioutil.ReadFile("server.crt"); err != nil {
+			return fmt.Errorf("action[Start] failed,err[%v]", err)
+		}
+		if m.cluster.PKIKey.AuthRootPrivateKey, err = ioutil.ReadFile("server.key"); err != nil {
+			return fmt.Errorf("action[Start] failed,err[%v]", err)
+		}
+	} else {
+		m.cluster.PKIKey.EnableHTTPS = false
 	}
 
 	//m.cluster.idAlloc.partition = m.partition

@@ -15,6 +15,6 @@
  "exporterPort": 9510,
  "consulAddr": "http://consul.prometheus-cfs.local",
  "clusterName":"test",
- "authSecretKey":"MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=",
- "authRootKey":"MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE="
+ "authServiceKey":"MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=",
+ "enableHTTPS":true
 }

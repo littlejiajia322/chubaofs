@@ -1,6 +1,7 @@
 package authnode
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -13,9 +14,25 @@ func (m *Server) startHTTPService() {
 	fmt.Printf("start http + %s\n", colonSplit+m.port)
 	go func() {
 		m.handleFunctions()
-		if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
-			log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
-			panic(err)
+		if m.cluster.PKIKey.EnableHTTPS {
+			// not verify client certificate for now
+			cfg := &tls.Config{
+				//ClientAuth: tls.RequireAndVerifyClientCert,
+				//ClientCAs:  caCertPool,
+			}
+			srv := &http.Server{
+				Addr:      colonSplit + m.port,
+				TLSConfig: cfg,
+			}
+			if err := srv.ListenAndServeTLS("./server.crt", "./server.key"); err != nil {
+				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
+				panic(err)
+			}
+		} else {
+			if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
+				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
+				panic(err)
+			}
 		}
 	}()
 	return

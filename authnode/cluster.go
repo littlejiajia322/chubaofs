@@ -15,6 +15,13 @@ import (
 	"github.com/chubaofs/chubaofs/util/log"
 )
 
+// PKIKey defines the pki keys
+type PKIKey struct {
+	EnableHTTPS        bool
+	AuthRootPrivateKey []byte
+	AuthRootPublicKey  []byte
+}
+
 // Cluster stores all the cluster-level information.
 type Cluster struct {
 	Name                string
@@ -29,6 +36,7 @@ type Cluster struct {
 	opKeyMutex          sync.RWMutex // operations on key mutex
 	AuthSecretKey       []byte
 	AuthRootKey         []byte
+	PKIKey              PKIKey
 }
 
 func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition raftstore.Partition, cfg *clusterConfig) (c *Cluster) {
