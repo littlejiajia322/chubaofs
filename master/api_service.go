@@ -421,10 +421,10 @@ func (m *Server) getVolSimpleInfo(w http.ResponseWriter, r *http.Request) {
 		vol     *Vol
 		volView *proto.SimpleVolView
 	)
-	if err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
+	//if err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+	//	sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+	//	return
+	//}
 	if name, err = parseAndExtractName(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
