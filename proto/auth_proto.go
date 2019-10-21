@@ -358,7 +358,7 @@ func ParseAuthRaftNodeResp(body []byte, key []byte) (resp AuthRaftNodeResp, err 
 	return
 }
 
-func extractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error) {
+func ExtractTicket(str string, key []byte) (ticket cryptoutil.Ticket, err error) {
 	var (
 		plaintext []byte
 	)
@@ -427,7 +427,7 @@ func VerifyAPIAccessReqIDs(req *APIAccessReq) (err error) {
 
 // ExtractAPIAccessTicket verify ticket validity
 func ExtractAPIAccessTicket(req *APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
-	if ticket, err = extractTicket(req.Ticket, key); err != nil {
+	if ticket, err = ExtractTicket(req.Ticket, key); err != nil {
 		err = fmt.Errorf("extractTicket failed: %s", err.Error())
 		return
 	}

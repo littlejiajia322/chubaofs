@@ -16,6 +16,7 @@ package master
 
 import (
 	"fmt"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"net/http/httputil"
 	"regexp"
 	"strconv"
@@ -44,6 +45,7 @@ const (
 	DefaultRetainLogs = 20000
 	cfgTickInterval   = "tickInterval"
 	cfgElectionTick   = "electionTick"
+	MasterSecretKey   = "masterServiceKey"
 )
 
 var (
@@ -103,6 +105,10 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	exporter.Init(ModuleName, cfg)
 	m.cluster.partition = m.partition
 	m.cluster.idAlloc.partition = m.partition
+	MasterSecretKey := cfg.GetString(MasterSecretKey)
+	if m.cluster.MasterSecretKey, err = cryptoutil.Base64Decode(MasterSecretKey); err != nil {
+		return fmt.Errorf("action[Start] failed %v,err: master service Key invalid=%s", proto.ErrInvalidCfg, MasterSecretKey)
+	}
 	m.cluster.scheduleTask()
 	m.startHTTPService()
 	exporter.RegistConsul(m.clusterName, ModuleName, cfg)

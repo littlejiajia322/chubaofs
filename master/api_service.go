@@ -17,8 +17,10 @@ package master
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"net/http"
 	"strconv"
+	"time"
 
 	"bytes"
 	"github.com/chubaofs/chubaofs/proto"
@@ -419,6 +421,10 @@ func (m *Server) getVolSimpleInfo(w http.ResponseWriter, r *http.Request) {
 		vol     *Vol
 		volView *proto.SimpleVolView
 	)
+	if err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
 	if name, err = parseAndExtractName(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return
@@ -1235,6 +1241,34 @@ func parseAndExtractName(r *http.Request) (name string, err error) {
 		return
 	}
 	return extractName(r)
+}
+
+func parseAndCheckTicket(r *http.Request, key []byte) (err error) {
+	if err = r.ParseForm(); err != nil {
+		return
+	}
+	return extractTicketMess(r, key)
+}
+
+func extractTicketMess(r *http.Request, key []byte) (err error) {
+	var (
+		name   string
+		ticket cryptoutil.Ticket
+	)
+	if name = r.FormValue(ticketKey); name == "" {
+		err = keyNotFound(ticketKey)
+		return
+	}
+	if ticket, err = proto.ExtractTicket(name, key); err != nil {
+		err = fmt.Errorf("extractTicket failed: %s", err.Error())
+		return
+	}
+	if time.Now().Unix() >= ticket.Exp {
+		err = fmt.Errorf("ticket expired")
+		return
+	}
+	//TODO 未验证verifier
+	return
 }
 
 func extractName(r *http.Request) (name string, err error) {

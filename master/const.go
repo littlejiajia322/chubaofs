@@ -32,6 +32,7 @@ const (
 	volOwnerKey           = "owner"
 	volAuthKey            = "authKey"
 	replicaNumKey         = "replicaNum"
+	ticketKey             = "ticket"
 )
 
 const (
