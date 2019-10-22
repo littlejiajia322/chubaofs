@@ -461,3 +461,51 @@ func CheckAPIAccessCaps(ticket *cryptoutil.Ticket, rscType string, mp MsgType, a
 	}
 	return
 }
+
+// VerifyAPIRespComm client verifies commond attributes returned from server
+func VerifyAPIRespComm(apiResp *APIAccessResp, msg MsgType, clientID string, serviceID string, ts int64) (err error) {
+	if ts+1 != apiResp.Verifier {
+		err = fmt.Errorf("verifier verification failed")
+		return
+	}
+
+	if apiResp.Type != msg+1 {
+		err = fmt.Errorf("msg verification failed")
+		return
+	}
+
+	if apiResp.ClientID != clientID {
+		err = fmt.Errorf("id verification failed")
+		return
+	}
+
+	if apiResp.ServiceID != serviceID {
+		err = fmt.Errorf("service id verification failed")
+		return
+	}
+	return
+}
+
+// VerifyTicketRespComm verifies the ticket respose from server
+func VerifyTicketRespComm(ticketResp *AuthGetTicketResp, msg MsgType, clientID string, serviceID string, ts int64) (err error) {
+	if ts+1 != ticketResp.Verifier {
+		err = fmt.Errorf("verifier verification failed")
+		return
+	}
+
+	if ticketResp.Type != msg+1 {
+		err = fmt.Errorf("msg verification failed")
+		return
+	}
+
+	if ticketResp.ClientID != clientID {
+		err = fmt.Errorf("id verification failed")
+		return
+	}
+
+	if ticketResp.ServiceID != serviceID {
+		err = fmt.Errorf("service id verification failed")
+		return
+	}
+	return
+}

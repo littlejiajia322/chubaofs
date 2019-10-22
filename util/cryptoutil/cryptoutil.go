@@ -15,6 +15,7 @@ import (
 	rand2 "math/rand"
 	"strconv"
 	"time"
+	"unsafe"
 )
 
 func pad(src []byte) []byte {
@@ -190,5 +191,16 @@ func DecodeMessage(message string, key []byte) (plaintext []byte, err error) {
 	plaintext = decodedText[MessageOffset:]
 
 	//fmt.Printf("DecodeMessage CBC: %s\n", plaintext)
+	return
+}
+
+// GenVerifier generate a verifier for replay mitigation in http
+func GenVerifier(key []byte) (v string, ts int64, err error) {
+	ts = time.Now().Unix()
+	tsbuf := make([]byte, unsafe.Sizeof(ts))
+	binary.LittleEndian.PutUint64(tsbuf, uint64(ts))
+	if v, err = EncodeMessage(tsbuf, key); err != nil {
+		panic(err)
+	}
 	return
 }

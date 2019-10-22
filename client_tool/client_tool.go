@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,8 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"time"
-	"unsafe"
 
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/config"
@@ -88,8 +85,8 @@ type ticketFile struct {
 }
 
 type httpsSetting struct {
-	enable   string
-	certFile string
+	enable string
+	cert   []byte
 }
 
 func (m *ticketFile) dumpJSONFile(filename string) {
@@ -110,62 +107,51 @@ func (m *ticketFile) dumpJSONFile(filename string) {
 	}
 }
 
-func sendReq(target string, data interface{}) (res []byte) {
-	var (
-		client *http.Client
-	)
-	if flaginfo.https.enable == "true" {
-		if flaginfo.https.certFile == "" {
-			flaginfo.https.certFile = "./server.crt"
-		}
-		target = "https://" + target
-		caCert, err := ioutil.ReadFile(flaginfo.https.certFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-
-		// We don't use PKI to verify client since we have secret key for authentication
-		client = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
-				},
-			},
-		}
-	} else {
-		target = "http://" + target
-		client = &http.Client{}
-	}
-
+func doRealSend(client *http.Client, target string, data interface{}) (res []byte, err error) {
 	messageJSON, err := json.Marshal(data)
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
+		return
 	}
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
 	fmt.Printf("url=%s\n", target)
 	resp, err := client.PostForm(target, url.Values{proto.ClientMessage: {message}})
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
+		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
+		return
 	}
 	res = body
 	return
 }
 
-func genVerifier(key []byte) (v string, ts int64, err error) {
-	ts = time.Now().Unix()
-	tsbuf := make([]byte, unsafe.Sizeof(ts))
-	binary.LittleEndian.PutUint64(tsbuf, uint64(ts))
-	if v, err = cryptoutil.EncodeMessage(tsbuf, key); err != nil {
-		panic(err)
+func sendReqX(target string, data interface{}, cert *[]byte) (res []byte, err error) {
+	target = "https://" + target
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(flaginfo.https.cert)
+
+	// We don't use PKI to verify client since we have secret key for authentication
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: caCertPool,
+			},
+		},
 	}
+	res, err = doRealSend(client, target, data)
+	return
+}
+
+func sendReq(target string, data interface{}) (res []byte, err error) {
+	target = "http://" + target
+	client := &http.Client{}
+	res, err = doRealSend(client, target, data)
 	return
 }
 
@@ -175,22 +161,31 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		err     error
 		ts      int64
 		msgResp proto.AuthGetTicketResp
+		body    []byte
 	)
 
 	// construct request body
-	messageStruct := proto.AuthGetTicketReq{
+	message := proto.AuthGetTicketReq{
 		Type:      proto.MsgAuthTicketReq,
 		ClientID:  keyring.ID,
 		ServiceID: flaginfo.ticket.service,
 	}
 
-	if messageStruct.Verifier, ts, err = genVerifier(keyring.Key); err != nil {
+	if message.Verifier, ts, err = cryptoutil.GenVerifier(keyring.Key); err != nil {
 		panic(err)
 	}
 
 	url := flaginfo.ticket.host + action2PathMap[flaginfo.ticket.request]
 
-	body := sendReq(url, messageStruct)
+	if flaginfo.https.enable == "enable" {
+		body, err = sendReqX(url, message, &flaginfo.https.cert)
+	} else {
+		body, err = sendReq(url, message)
+	}
+
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("\n" + string(body) + "\n")
 
@@ -198,7 +193,9 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		panic(err)
 	}
 
-	verifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, keyring.ID, flaginfo.ticket.service, ts)
+	if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, keyring.ID, flaginfo.ticket.service, ts); err != nil {
+		panic(err)
+	}
 
 	ticketfile.Ticket = msgResp.Ticket
 	ticketfile.ServiceID = msgResp.ServiceID
@@ -233,6 +230,7 @@ func accessAuthServer() {
 		message    interface{}
 		ts         int64
 		res        string
+		body       []byte
 	)
 
 	switch flaginfo.api.request {
@@ -266,7 +264,7 @@ func accessAuthServer() {
 		panic(err)
 	}
 
-	if apiReq.Verifier, ts, err = genVerifier(sessionKey); err != nil {
+	if apiReq.Verifier, ts, err = cryptoutil.GenVerifier(sessionKey); err != nil {
 		panic(err)
 	}
 	apiReq.Ticket = ticketCFG.GetString("ticket")
@@ -329,7 +327,16 @@ func accessAuthServer() {
 
 	url := flaginfo.api.host + action2PathMap[flaginfo.api.request]
 
-	body := sendReq(url, message)
+	if flaginfo.https.enable == "enable" {
+		body, err = sendReqX(url, message, &flaginfo.https.cert)
+	} else {
+		body, err = sendReq(url, message)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Printf("\nbody: " + string(body) + "\n")
 
 	switch flaginfo.api.request {
@@ -347,7 +354,9 @@ func accessAuthServer() {
 			panic(err)
 		}
 
-		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+		if err = proto.VerifyAPIRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts); err != nil {
+			panic(err)
+		}
 
 		if flaginfo.api.request == CreateKey {
 			if err = resp.KeyInfo.DumpJSONFile(flaginfo.api.output); err != nil {
@@ -359,6 +368,7 @@ func accessAuthServer() {
 			}
 			fmt.Printf(res + "\n")
 		}
+
 	case AddRaftNode:
 		fallthrough
 	case RemoveRaftNode:
@@ -367,51 +377,15 @@ func accessAuthServer() {
 			panic(err)
 		}
 
-		verifyRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts)
+		if err = proto.VerifyAPIRespComm(&resp.APIResp, msg, ticketCFG.GetString("id"), proto.AuthServiceID, ts); err != nil {
+			panic(err)
+		}
 
 		fmt.Printf(resp.Msg + "\n")
 	}
 
 	return
 
-}
-
-func verifyTicketRespComm(ticketResp *proto.AuthGetTicketResp, msg proto.MsgType, clientID string, serviceID string, ts int64) {
-	if ts+1 != ticketResp.Verifier {
-		panic("verifier verification failed")
-	}
-
-	if ticketResp.Type != msg+1 {
-		panic("msg verification failed")
-	}
-
-	if ticketResp.ClientID != clientID {
-		panic("id verification failed")
-	}
-
-	if ticketResp.ServiceID != serviceID {
-		panic("service id verification failed")
-	}
-	return
-}
-
-func verifyRespComm(apiResp *proto.APIAccessResp, msg proto.MsgType, clientID string, serviceID string, ts int64) {
-	if ts+1 != apiResp.Verifier {
-		panic("verifier verification failed")
-	}
-
-	if apiResp.Type != msg+1 {
-		panic("msg verification failed")
-	}
-
-	if apiResp.ClientID != clientID {
-		panic("id verification failed")
-	}
-
-	if apiResp.ServiceID != serviceID {
-		panic("service id verification failed")
-	}
-	return
 }
 
 func accessAPI() {
@@ -421,6 +395,15 @@ func accessAPI() {
 	default:
 		panic(fmt.Errorf("server type error [%s]", flaginfo.api.service))
 	}
+}
+
+func loadCertfile(path string) (caCert []byte) {
+	var err error
+	caCert, err = ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }
 
 func main() {
@@ -442,11 +425,15 @@ func main() {
 		host := ticketCmd.String("host", "", "api host")
 		file := ticketCmd.String("output", "", "output path to ticket file")
 		https := ticketCmd.String("https", "", "enable https")
+		certfile := ticketCmd.String("certfile", "server.crt", "path to cert file")
 		ticketCmd.Parse(os.Args[2:])
 		flaginfo.ticket.key = *key
 		flaginfo.ticket.host = *host
 		flaginfo.ticket.output = *file
 		flaginfo.https.enable = *https
+		if flaginfo.https.enable == "enable" {
+			flaginfo.https.cert = loadCertfile(*certfile)
+		}
 		if len(ticketCmd.Args()) >= 2 {
 			flaginfo.ticket.request = ticketCmd.Args()[0]
 			flaginfo.ticket.service = ticketCmd.Args()[1]
@@ -461,12 +448,16 @@ func main() {
 		data := apiCmd.String("data", "", "request data file")
 		output := apiCmd.String("output", "", "output path to keyring file")
 		https := apiCmd.String("https", "", "enable https")
+		certfile := apiCmd.String("certfile", "server.crt", "path to cert file")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
 		flaginfo.api.host = *host
 		flaginfo.api.data = *data
 		flaginfo.api.output = *output
 		flaginfo.https.enable = *https
+		if flaginfo.https.enable == "enable" {
+			flaginfo.https.cert = loadCertfile(*certfile)
+		}
 		if len(apiCmd.Args()) >= 2 {
 			flaginfo.api.service = apiCmd.Args()[0]
 			flaginfo.api.request = apiCmd.Args()[1]

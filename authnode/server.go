@@ -46,10 +46,6 @@ type Server struct {
 	metaReady    bool
 }
 
-// TLSConfig represents the tls configuration
-type TLSConfig struct {
-}
-
 // configuration keys
 const (
 	ClusterName       = "clusterName"
