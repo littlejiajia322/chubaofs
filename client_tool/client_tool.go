@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,7 +9,6 @@ import (
 	"log"
 
 	"net/http"
-	"net/url"
 	"os"
 
 	"github.com/chubaofs/chubaofs/proto"
@@ -107,51 +103,23 @@ func (m *ticketFile) dumpJSONFile(filename string) {
 	}
 }
 
-func doRealSend(client *http.Client, target string, data interface{}) (res []byte, err error) {
-	messageJSON, err := json.Marshal(data)
-	if err != nil {
-		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
-		return
-	}
-	message := base64.StdEncoding.EncodeToString(messageJSON)
-
-	fmt.Printf("url=%s\n", target)
-	resp, err := client.PostForm(target, url.Values{proto.ClientMessage: {message}})
-	if err != nil {
-		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
-		return
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
-		return
-	}
-	res = body
-	return
-}
-
 func sendReqX(target string, data interface{}, cert *[]byte) (res []byte, err error) {
+	var (
+		client *http.Client
+	)
 	target = "https://" + target
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(flaginfo.https.cert)
-
-	// We don't use PKI to verify client since we have secret key for authentication
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
-			},
-		},
+	client, err = cryptoutil.CreateClientX(cert)
+	if err != nil {
+		return
 	}
-	res, err = doRealSend(client, target, data)
+	res, err = proto.SendData(client, target, data)
 	return
 }
 
 func sendReq(target string, data interface{}) (res []byte, err error) {
 	target = "http://" + target
 	client := &http.Client{}
-	res, err = doRealSend(client, target, data)
+	res, err = proto.SendData(client, target, data)
 	return
 }
 
@@ -423,7 +391,7 @@ func main() {
 	if isTicket {
 		key := ticketCmd.String("keyfile", "", "path to key file")
 		host := ticketCmd.String("host", "", "api host")
-		file := ticketCmd.String("output", "", "output path to ticket file")
+		file := ticketCmd.String("output", "ticket.json", "output path to ticket file")
 		https := ticketCmd.String("https", "", "enable https")
 		certfile := ticketCmd.String("certfile", "server.crt", "path to cert file")
 		ticketCmd.Parse(os.Args[2:])
@@ -446,7 +414,7 @@ func main() {
 		ticket := apiCmd.String("ticketfile", "", "path to ticket file")
 		host := apiCmd.String("host", "", "api host")
 		data := apiCmd.String("data", "", "request data file")
-		output := apiCmd.String("output", "", "output path to keyring file")
+		output := apiCmd.String("output", "keyring.json", "output path to keyring file")
 		https := apiCmd.String("https", "", "enable https")
 		certfile := apiCmd.String("certfile", "server.crt", "path to cert file")
 		apiCmd.Parse(os.Args[2:])

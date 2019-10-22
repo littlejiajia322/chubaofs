@@ -3,6 +3,7 @@ package authnode
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/http/httputil"
 	"strconv"
 	"sync"
@@ -23,6 +24,14 @@ const (
 	WriteBufferSize = 4 * util.MB
 )
 
+// AuthProxy wraps the stuff for http and https
+type AuthProxy struct {
+	// for http proxy
+	reverseProxy *httputil.ReverseProxy
+	// for https redirect
+	client *http.Client
+}
+
 // Server represents the server in a cluster
 type Server struct {
 	id           uint64
@@ -42,7 +51,7 @@ type Server struct {
 	fsm          *KeystoreFsm
 	partition    raftstore.Partition
 	wg           sync.WaitGroup
-	reverseProxy *httputil.ReverseProxy
+	authProxy    *AuthProxy //httputil.ReverseProxy
 	metaReady    bool
 }
 
@@ -155,7 +164,6 @@ func (m *Server) createRaftServer() (err error) {
 func (m *Server) Start(cfg *config.Config) (err error) {
 	m.config = newClusterConfig()
 	m.leaderInfo = &LeaderInfo{}
-	m.reverseProxy = m.newReverseProxy()
 	if err = m.checkConfig(cfg); err != nil {
 		log.LogError(errors.Stack(err))
 		return
@@ -187,9 +195,11 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 		if m.cluster.PKIKey.AuthRootPrivateKey, err = ioutil.ReadFile("/app/server.key"); err != nil {
 			return fmt.Errorf("action[Start] failed,err[%v]", err)
 		}
+		// TODO: verify cert
 	} else {
 		m.cluster.PKIKey.EnableHTTPS = false
 	}
+	m.authProxy = m.newAuthProxy()
 
 	//m.cluster.idAlloc.partition = m.partition
 	m.cluster.scheduleTask()

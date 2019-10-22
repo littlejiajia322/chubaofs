@@ -35,7 +35,7 @@ func (m *Server) handleLeaderChange(leader uint64) {
 	oldLeaderAddr := m.leaderInfo.addr
 	m.leaderInfo.addr = AddrDatabase[leader]
 	log.LogWarnf("action[handleLeaderChange] change leader to [%v] ", m.leaderInfo.addr)
-	m.reverseProxy = m.newReverseProxy() // TODO why no lock?
+	m.authProxy = m.newAuthProxy() // TODO why no lock?
 
 	if m.id == leader {
 		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",

@@ -8,11 +8,14 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
 	rand2 "math/rand"
+	"net/http"
 	"strconv"
 	"time"
 	"unsafe"
@@ -201,6 +204,28 @@ func GenVerifier(key []byte) (v string, ts int64, err error) {
 	binary.LittleEndian.PutUint64(tsbuf, uint64(ts))
 	if v, err = EncodeMessage(tsbuf, key); err != nil {
 		panic(err)
+	}
+	return
+}
+
+// CreateClientX creates a https client
+func CreateClientX(cert *[]byte) (client *http.Client, err error) {
+	caCertPool := x509.NewCertPool()
+	ok := caCertPool.AppendCertsFromPEM(*cert)
+
+	if !ok {
+		err = fmt.Errorf("CreateClientX AppendCertsFromPEM fails")
+		return
+	}
+
+	// We don't use PKI to verify client since we have secret key for authentication
+	client = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:            caCertPool,
+				InsecureSkipVerify: true,
+			},
+		},
 	}
 	return
 }

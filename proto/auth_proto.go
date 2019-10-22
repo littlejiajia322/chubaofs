@@ -15,9 +15,13 @@
 package proto
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -285,20 +289,24 @@ func IsValidClientID(id string) (err error) {
 	return
 }
 
-// GetDataFromResp extract data from response
-func GetDataFromResp(body []byte, key []byte) (plaintext []byte, err error) {
-	var (
-		jobj HTTPAuthReply
-	)
+// ParseAuthReply parse the response from auth
+func ParseAuthReply(body []byte) (jobj HTTPAuthReply, err error) {
 	if err = json.Unmarshal(body, &jobj); err != nil {
 		return
 	}
-
 	if jobj.Code != 0 {
 		err = fmt.Errorf(jobj.Msg)
 		return
 	}
+	return
+}
 
+// GetDataFromResp extract data from response
+func GetDataFromResp(body []byte, key []byte) (plaintext []byte, err error) {
+	jobj, err := ParseAuthReply(body)
+	if err != nil {
+		return
+	}
 	data := fmt.Sprint(jobj.Data)
 
 	if plaintext, err = cryptoutil.DecodeMessage(data, key); err != nil {
@@ -505,6 +513,40 @@ func VerifyTicketRespComm(ticketResp *AuthGetTicketResp, msg MsgType, clientID s
 
 	if ticketResp.ServiceID != serviceID {
 		err = fmt.Errorf("service id verification failed")
+		return
+	}
+	return
+}
+
+// SendString send raw bytes target in http/https protocol
+func SendBytes(client *http.Client, target string, data []byte) (res []byte, err error) {
+	//fmt.Printf("SendData: %s", string(data))
+	message := base64.StdEncoding.EncodeToString(data)
+
+	fmt.Printf("url=%s\n", target)
+	resp, err := client.PostForm(target, url.Values{ClientMessage: {message}})
+	if err != nil {
+		err = fmt.Errorf("action[SendData] failed:" + err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
+		return
+	}
+	res = body
+	return
+}
+
+// SendData sends data to target
+func SendData(client *http.Client, target string, data interface{}) (res []byte, err error) {
+	messageJSON, err := json.Marshal(data)
+	if err != nil {
+		err = fmt.Errorf("action[doRealSend] failed:" + err.Error())
+		return
+	}
+	if res, err = SendBytes(client, target, messageJSON); err != nil {
 		return
 	}
 	return
