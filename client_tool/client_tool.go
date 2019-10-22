@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -8,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 
 	"net/http"
 	"net/url"
@@ -69,6 +72,7 @@ type apiFlag struct {
 type flagInfo struct {
 	ticket ticketFlag
 	api    apiFlag
+	https  httpsSetting
 }
 
 type keyRing struct {
@@ -81,6 +85,11 @@ type ticketFile struct {
 	Key       string `json:"session_key"`
 	ServiceID string `json:"service_id"`
 	Ticket    string `json:"ticket"`
+}
+
+type httpsSetting struct {
+	enable   string
+	certFile string
 }
 
 func (m *ticketFile) dumpJSONFile(filename string) {
@@ -101,16 +110,43 @@ func (m *ticketFile) dumpJSONFile(filename string) {
 	}
 }
 
-func sendReq(u string, data interface{}) (res []byte) {
-	// We can use POST form to get result, too.
-	// http://localhost:8081/client/getticket
+func sendReq(target string, data interface{}) (res []byte) {
+	var (
+		client *http.Client
+	)
+	if flaginfo.https.enable == "true" {
+		if flaginfo.https.certFile == "" {
+			flaginfo.https.certFile = "./server.crt"
+		}
+		target = "https://" + target
+		caCert, err := ioutil.ReadFile(flaginfo.https.certFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		// We don't use PKI to verify client since we have secret key for authentication
+		client = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: caCertPool,
+				},
+			},
+		}
+	} else {
+		target = "http://" + target
+		client = &http.Client{}
+	}
+
 	messageJSON, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
-	resp, err := http.PostForm(u, url.Values{"Token": {message}})
+	fmt.Printf("url=%s\n", target)
+	resp, err := client.PostForm(target, url.Values{"Token": {message}})
 	if err != nil {
 		panic(err)
 	}
@@ -152,8 +188,7 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 		panic(err)
 	}
 
-	url := "http://" + flaginfo.ticket.host + action2PathMap[flaginfo.ticket.request]
-	fmt.Printf("url=%s\n", url)
+	url := flaginfo.ticket.host + action2PathMap[flaginfo.ticket.request]
 
 	body := sendReq(url, messageStruct)
 
@@ -292,8 +327,7 @@ func accessAuthServer() {
 		panic(fmt.Errorf("wrong action [%s]", flaginfo.api.request))
 	}
 
-	url := "http://" + flaginfo.api.host + action2PathMap[flaginfo.api.request]
-	fmt.Printf("url=%s\n", url)
+	url := flaginfo.api.host + action2PathMap[flaginfo.api.request]
 
 	body := sendReq(url, message)
 	fmt.Printf("\nbody: " + string(body) + "\n")
@@ -407,10 +441,12 @@ func main() {
 		key := ticketCmd.String("keyfile", "", "path to key file")
 		host := ticketCmd.String("host", "", "api host")
 		file := ticketCmd.String("output", "", "output path to ticket file")
+		https := ticketCmd.String("https", "", "enable https")
 		ticketCmd.Parse(os.Args[2:])
 		flaginfo.ticket.key = *key
 		flaginfo.ticket.host = *host
 		flaginfo.ticket.output = *file
+		flaginfo.https.enable = *https
 		if len(ticketCmd.Args()) >= 2 {
 			flaginfo.ticket.request = ticketCmd.Args()[0]
 			flaginfo.ticket.service = ticketCmd.Args()[1]
@@ -424,11 +460,13 @@ func main() {
 		host := apiCmd.String("host", "", "api host")
 		data := apiCmd.String("data", "", "request data file")
 		output := apiCmd.String("output", "", "output path to keyring file")
+		https := apiCmd.String("https", "", "enable https")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
 		flaginfo.api.host = *host
 		flaginfo.api.data = *data
 		flaginfo.api.output = *output
+		flaginfo.https.enable = *https
 		if len(apiCmd.Args()) >= 2 {
 			flaginfo.api.service = apiCmd.Args()[0]
 			flaginfo.api.request = apiCmd.Args()[1]

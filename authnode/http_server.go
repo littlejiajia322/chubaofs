@@ -11,11 +11,12 @@ import (
 )
 
 func (m *Server) startHTTPService() {
-	fmt.Printf("start http + %s\n", colonSplit+m.port)
 	go func() {
 		m.handleFunctions()
 		if m.cluster.PKIKey.EnableHTTPS {
-			// not verify client certificate for now
+			fmt.Printf("start https + %s\n", colonSplit+m.port)
+			// not use PKI to verify client certificate
+			// Instead, we use client secret key for authentication
 			cfg := &tls.Config{
 				//ClientAuth: tls.RequireAndVerifyClientCert,
 				//ClientCAs:  caCertPool,
@@ -24,11 +25,12 @@ func (m *Server) startHTTPService() {
 				Addr:      colonSplit + m.port,
 				TLSConfig: cfg,
 			}
-			if err := srv.ListenAndServeTLS("./server.crt", "./server.key"); err != nil {
+			if err := srv.ListenAndServeTLS("/app/server.crt", "/app/server.key"); err != nil {
 				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 				panic(err)
 			}
 		} else {
+			fmt.Printf("start http + %s\n", colonSplit+m.port)
 			if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
 				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 				panic(err)
