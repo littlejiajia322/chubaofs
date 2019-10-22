@@ -40,6 +40,7 @@ const (
 	APIAccess     = "access"
 	capSeparator  = ":"
 	reqLiveLength = 10
+	ClientMessage = "Token"
 )
 
 // api

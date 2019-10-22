@@ -1,5 +1,10 @@
 package cryptoutil
 
+const (
+	TicketVersion = 1
+	TicketAge     = 24 * 60 * 60
+)
+
 // CryptoKey store the session key
 type CryptoKey struct {
 	Ctime int64  `json:"c_time"`

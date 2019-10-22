@@ -146,7 +146,7 @@ func sendReq(target string, data interface{}) (res []byte) {
 	message := base64.StdEncoding.EncodeToString(messageJSON)
 
 	fmt.Printf("url=%s\n", target)
-	resp, err := client.PostForm(target, url.Values{"Token": {message}})
+	resp, err := client.PostForm(target, url.Values{proto.ClientMessage: {message}})
 	if err != nil {
 		panic(err)
 	}
