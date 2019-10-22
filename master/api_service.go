@@ -1260,7 +1260,7 @@ func extractTicketMess(r *http.Request, key []byte) (err error) {
 		return
 	}
 	if ticket, err = proto.ExtractTicket(name, key); err != nil {
-		err = fmt.Errorf("extractTicket failed: %s", err.Error())
+		err = fmt.Errorf("extractTicket failed: %s from ticket %s", err.Error(), name)
 		return
 	}
 	if time.Now().Unix() >= ticket.Exp {
