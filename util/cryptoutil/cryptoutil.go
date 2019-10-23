@@ -92,7 +92,7 @@ func AesDecryptCBC(key, ciphertext []byte) (plaintext []byte, err error) {
 	return
 }
 
-// GenSecretKey generate a secret key according to pair {key and data}
+// GenSecretKey generate a secret key according to pair {ts, id}
 func GenSecretKey(key []byte, ts int64, id string) (secretKey []byte) {
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, uint64(ts))
