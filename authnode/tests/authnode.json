@@ -16,5 +16,6 @@
  "consulAddr": "http://consul.prometheus-cfs.local",
  "clusterName":"test",
  "authServiceKey":"MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=",
+ "authRootKey":"MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=",
  "enableHTTPS":true
 }
