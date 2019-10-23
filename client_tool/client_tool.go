@@ -389,10 +389,10 @@ func main() {
 	}
 
 	if isTicket {
-		key := ticketCmd.String("keyfile", "", "path to key file")
-		host := ticketCmd.String("host", "", "api host")
+		key := ticketCmd.String("keyfile", "keyring.json", "path to key file")
+		host := ticketCmd.String("host", "localhost:8080", "api host")
 		file := ticketCmd.String("output", "ticket.json", "output path to ticket file")
-		https := ticketCmd.String("https", "", "enable https")
+		https := ticketCmd.String("https", "disable", "enable https")
 		certfile := ticketCmd.String("certfile", "server.crt", "path to cert file")
 		ticketCmd.Parse(os.Args[2:])
 		flaginfo.ticket.key = *key
@@ -411,11 +411,11 @@ func main() {
 		}
 		getTicket()
 	} else {
-		ticket := apiCmd.String("ticketfile", "", "path to ticket file")
-		host := apiCmd.String("host", "", "api host")
-		data := apiCmd.String("data", "", "request data file")
+		ticket := apiCmd.String("ticketfile", "ticket.json", "path to ticket file")
+		host := apiCmd.String("host", "localhost:8080", "api host")
+		data := apiCmd.String("data", "data.json", "request data file")
 		output := apiCmd.String("output", "keyring.json", "output path to keyring file")
-		https := apiCmd.String("https", "", "enable https")
+		https := apiCmd.String("https", "disable", "enable https")
 		certfile := apiCmd.String("certfile", "server.crt", "path to cert file")
 		apiCmd.Parse(os.Args[2:])
 		flaginfo.api.ticket = *ticket
