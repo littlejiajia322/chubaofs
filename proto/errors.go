@@ -101,6 +101,7 @@ const (
 	ErrCodeAuthKeyStoreError
 	ErrCodeAuthAPIAccessGenRespError
 	ErrCodeAuthRaftNodeGenRespError
+	ErrCodeAuthReqRedirectError
 )
 
 // Err2CodeMap error map to code

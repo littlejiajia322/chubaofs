@@ -308,8 +308,8 @@ func (m *Server) extractClientReqInfo(r *http.Request) (plaintext []byte, err er
 		return
 	}
 
-	if message = r.FormValue(ClientMessage); message == "" {
-		err = keyNotFound(ClientMessage)
+	if message = r.FormValue(proto.ClientMessage); message == "" {
+		err = keyNotFound(proto.ClientMessage)
 		return
 	}
 
@@ -322,11 +322,11 @@ func (m *Server) extractClientReqInfo(r *http.Request) (plaintext []byte, err er
 
 func (m *Server) genTicket(key []byte, serviceID string, IP string, caps []byte) (ticket cryptoutil.Ticket) {
 	currentTime := time.Now().Unix()
-	ticket.Version = TicketVersion
+	ticket.Version = cryptoutil.TicketVersion
 	ticket.ServiceID = serviceID
 	ticket.SessionKey.Ctime = currentTime
 	ticket.SessionKey.Key = cryptoutil.AuthGenSessionKeyTS(key)
-	ticket.Exp = currentTime + TicketAge
+	ticket.Exp = currentTime + cryptoutil.TicketAge
 	ticket.IP = IP
 	ticket.Caps = caps
 	return

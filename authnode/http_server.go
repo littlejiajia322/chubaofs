@@ -7,15 +7,17 @@ import (
 	"net/http/httputil"
 
 	"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/log"
 )
 
 func (m *Server) startHTTPService() {
-	fmt.Printf("start http + %s\n", colonSplit+m.port)
 	go func() {
 		m.handleFunctions()
 		if m.cluster.PKIKey.EnableHTTPS {
-			// not verify client certificate for now
+			fmt.Printf("start https + %s\n", colonSplit+m.port)
+			// not use PKI to verify client certificate
+			// Instead, we use client secret key for authentication
 			cfg := &tls.Config{
 				//ClientAuth: tls.RequireAndVerifyClientCert,
 				//ClientCAs:  caCertPool,
@@ -24,11 +26,12 @@ func (m *Server) startHTTPService() {
 				Addr:      colonSplit + m.port,
 				TLSConfig: cfg,
 			}
-			if err := srv.ListenAndServeTLS("./server.crt", "./server.key"); err != nil {
+			if err := srv.ListenAndServeTLS("/app/server.crt", "/app/server.key"); err != nil {
 				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 				panic(err)
 			}
 		} else {
+			fmt.Printf("start http + %s\n", colonSplit+m.port)
 			if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
 				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 				panic(err)
@@ -38,11 +41,23 @@ func (m *Server) startHTTPService() {
 	return
 }
 
-func (m *Server) newReverseProxy() *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{Director: func(request *http.Request) {
-		request.URL.Scheme = "http"
-		request.URL.Host = m.leaderInfo.addr
-	}}
+func (m *Server) newAuthProxy() *AuthProxy {
+	var (
+		authProxy AuthProxy
+		err       error
+	)
+	if m.cluster.PKIKey.EnableHTTPS {
+		if authProxy.client, err = cryptoutil.CreateClientX(&m.cluster.PKIKey.AuthRootPublicKey); err != nil {
+			panic(err)
+		}
+	} else {
+		authProxy.reverseProxy = &httputil.ReverseProxy{
+			Director: func(request *http.Request) {
+				request.URL.Scheme = "http"
+				request.URL.Host = m.leaderInfo.addr
+			}}
+	}
+	return &authProxy
 }
 
 func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -107,5 +122,30 @@ func (m *Server) handlerWithInterceptor() http.Handler {
 }
 
 func (m *Server) proxy(w http.ResponseWriter, r *http.Request) {
-	m.reverseProxy.ServeHTTP(w, r)
+	if m.cluster.PKIKey.EnableHTTPS {
+		var (
+			plaintext []byte
+			err       error
+			res       []byte
+			jobj      proto.HTTPAuthReply
+		)
+		target := "https://" + m.leaderInfo.addr + r.URL.Path
+		if plaintext, err = m.extractClientReqInfo(r); err != nil {
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			return
+		}
+		res, err = proto.SendBytes(m.authProxy.client, target, plaintext)
+		if err != nil {
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthReqRedirectError, Msg: "[proxy] failed: " + err.Error()})
+			return
+		}
+		fmt.Printf("\n" + string(res) + "\n")
+		if jobj, err = proto.ParseAuthReply(res); err != nil {
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthReqRedirectError, Msg: "Target Server failed: " + err.Error()})
+			return
+		}
+		sendOkReply(w, r, newSuccessHTTPAuthReply(jobj.Data))
+	} else {
+		m.authProxy.reverseProxy.ServeHTTP(w, r)
+	}
 }
