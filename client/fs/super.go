@@ -16,6 +16,7 @@ package fs
 
 import (
 	"fmt"
+	fs2 "github.com/chubaofs/chubaofs/clientv2/fs"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"golang.org/x/net/context"
 	"sync"
@@ -46,6 +47,11 @@ type MountOption struct {
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
+	ClientKey     string
+	Ticket        fs2.Ticket
+	TicketHost    string
+	EnableHTTPS   bool
+	CertFile      string
 }
 
 // Super defines the struct of a super block.
@@ -73,12 +79,12 @@ var (
 // NewSuper returns a new Super.
 func NewSuper(opt *MountOption) (s *Super, err error) {
 	s = new(Super)
-	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master)
+	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.Ticket)
 	if err != nil {
 		return nil, errors.Trace(err, "NewMetaWrapper failed!")
 	}
 
-	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
+	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, opt.Ticket, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
 	if err != nil {
 		return nil, errors.Trace(err, "NewExtentClient failed!")
 	}

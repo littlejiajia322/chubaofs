@@ -160,6 +160,18 @@ const (
 
 	// MsgMasterAPIAccessResp response type for master api access
 	MsgMasterAPIAccessResp MsgType = 0x60001
+
+	//Master API AdminGetIP
+	MsgMasterUpdateClusterInfoReq MsgType = MsgMasterAPIAccessReq + 0x10000
+
+	//Master API ClientDataPartitions
+	MsgMasterUpdateDataPartitionReq MsgType = MsgMasterAPIAccessReq + 0x20000
+
+	//Master API ClientVol
+	MsgMasterFetchVolViewReq MsgType = MsgMasterAPIAccessReq + 0x30000
+
+	//Master API ClientVolStat
+	MsgMasterUpdateVolStateInfoReq MsgType = MsgMasterAPIAccessReq + 0x40000
 )
 
 // HTTPAuthReply uniform response structure
@@ -179,7 +191,14 @@ var MsgType2ResourceMap = map[MsgType]string{
 	MsgAuthGetCapsReq:        "auth:getcaps",
 	MsgAuthAddRaftNodeReq:    "auth:addnode",
 	MsgAuthRemoveRaftNodeReq: "auth:removenode",
+
+	MsgMasterUpdateClusterInfoReq:   "master:updatecluster",
+	MsgMasterUpdateDataPartitionReq: "master:updatedp",
+	MsgMasterFetchVolViewReq:        "master:fetchvolview",
+	MsgMasterUpdateVolStateInfoReq:  "master:updatevolstate",
 }
+
+var MsgType2MasterResourceMap = map[MsgType]string{}
 
 // AuthGetTicketReq defines the message from client to authnode
 // use Timestamp as verifier for MITM mitigation

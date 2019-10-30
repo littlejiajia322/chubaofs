@@ -16,6 +16,7 @@ package stream
 
 import (
 	"fmt"
+	"github.com/chubaofs/chubaofs/clientv2/fs"
 	"runtime"
 	"sync"
 	"time"
@@ -57,13 +58,13 @@ type ExtentClient struct {
 }
 
 // NewExtentClient returns a new extent client.
-func NewExtentClient(volname, master string, appendExtentKey AppendExtentKeyFunc, getExtents GetExtentsFunc, truncate TruncateFunc) (client *ExtentClient, err error) {
+func NewExtentClient(volname, master string, ticket fs.Ticket, appendExtentKey AppendExtentKeyFunc, getExtents GetExtentsFunc, truncate TruncateFunc) (client *ExtentClient, err error) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	client = new(ExtentClient)
 
 	limit := MaxMountRetryLimit
 retry:
-	gDataWrapper, err = wrapper.NewDataPartitionWrapper(volname, master)
+	gDataWrapper, err = wrapper.NewDataPartitionWrapper(volname, master, ticket)
 	if err != nil {
 		if limit <= 0 {
 			return nil, errors.Trace(err, "Init data wrapper failed!")

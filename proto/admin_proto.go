@@ -27,16 +27,16 @@ const (
 	AdminCreateVol                 = "/admin/createVol"
 	AdminGetVol                    = "/admin/getVol"
 	AdminClusterFreeze             = "/cluster/freeze"
-	AdminGetIP                     = "/admin/getIp"
+	AdminGetIP                     = "/admin/getIp" //
 	AdminCreateMP                  = "/metaPartition/create"
 	AdminSetMetaNodeThreshold      = "/threshold/set"
 
 	// Client APIs
 	ClientDataPartitions = "/client/partitions"
-	ClientVol            = "/client/vol"
+	ClientVol            = "/client/vol" //
 	ClientMetaPartition  = "/client/metaPartition"
 	ClientVolStat        = "/client/volStat"
-	ClientMetaPartitions = "/client/metaPartitions"
+	ClientMetaPartitions = "/client/metaPartitions" //master先加上
 
 	//raft node APIs
 	AddRaftNode    = "/raftNode/add"
@@ -370,4 +370,14 @@ type SimpleVolView struct {
 	RwDpCnt      int
 	MpCnt        int
 	DpCnt        int
+}
+
+// TODO 需要吗？AuthCheckRequest defines the request of checking the authorization to master API.
+type AuthCheckRequest struct {
+	Type      string `json:"type"`
+	ClientID  string `json:"client_id"`
+	ServiceID string `json:"service_id"`
+	Verifier  string `json:"verifier"`
+	Ticket    string `json:"ticket"`
+	Caps      []byte `json:"caps"`
 }

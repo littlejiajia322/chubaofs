@@ -16,9 +16,11 @@ package meta
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/log"
 	"net/http"
 	"strings"
@@ -51,6 +53,13 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		return nil, err
 	}
 	params["authKey"] = authKey
+	mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
+	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
+	if err != nil {
+		log.LogWarnf("fetchVolumeView generate token failed: err(%v)", err)
+		return nil, err
+	}
+	params["token"] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
 	if err != nil {
 		log.LogWarnf("fetchVolumeView request: err(%v)", err)
@@ -67,6 +76,15 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 
 // fetch and update cluster info if successful
 func (mw *MetaWrapper) updateClusterInfo() error {
+	paras := make(map[string]string, 0)
+	//TODO 需要验证response吗,ts
+	mw.accessToken.Type = proto.MsgMasterUpdateClusterInfoReq
+	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
+	if err != nil {
+		log.LogWarnf("updateClusterInfo generate token failed: err(%v)", err)
+		return err
+	}
+	paras["token"] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.AdminGetIP, nil, nil)
 	if err != nil {
 		log.LogWarnf("updateClusterInfo request: err(%v)", err)
@@ -87,6 +105,13 @@ func (mw *MetaWrapper) updateClusterInfo() error {
 func (mw *MetaWrapper) updateVolStatInfo() error {
 	params := make(map[string]string)
 	params["name"] = mw.volname
+	mw.accessToken.Type = proto.MsgMasterUpdateVolStateInfoReq
+	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
+	if err != nil {
+		log.LogWarnf("updateVolStatInfo generate token failed: err(%v)", err)
+		return err
+	}
+	params["token"] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.ClientVolStat, params, nil)
 	if err != nil {
 		log.LogWarnf("updateVolStatInfo request: err(%v)", err)
@@ -151,4 +176,27 @@ func calculateAuthKey(key string) (authKey string, err error) {
 	}
 	cipherStr := h.Sum(nil)
 	return strings.ToLower(hex.EncodeToString(cipherStr)), nil
+}
+
+func genMasterToken(req proto.APIAccessReq, key string) (message string, err error) {
+	var (
+		sessionKey []byte
+		data       []byte
+	)
+
+	if sessionKey, err = cryptoutil.Base64Decode(key); err != nil {
+		return
+	}
+
+	if req.Verifier, _, err = cryptoutil.GenVerifier(sessionKey); err != nil {
+		return
+	}
+
+	if data, err = json.Marshal(req); err != nil {
+		return
+	}
+
+	message = base64.StdEncoding.EncodeToString(data)
+
+	return
 }

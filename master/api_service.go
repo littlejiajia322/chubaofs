@@ -15,20 +15,19 @@
 package master
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/chubaofs/chubaofs/util/cryptoutil"
-	"net/http"
-	"strconv"
-	"time"
-
-	"bytes"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/log"
 	"io/ioutil"
+	"net/http"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // ClusterView provides the view of a cluster.
@@ -1243,34 +1242,6 @@ func parseAndExtractName(r *http.Request) (name string, err error) {
 	return extractName(r)
 }
 
-func parseAndCheckTicket(r *http.Request, key []byte) (err error) {
-	if err = r.ParseForm(); err != nil {
-		return
-	}
-	return extractTicketMess(r, key)
-}
-
-func extractTicketMess(r *http.Request, key []byte) (err error) {
-	var (
-		name   string
-		ticket cryptoutil.Ticket
-	)
-	if name = r.FormValue(ticketKey); name == "" {
-		err = keyNotFound(ticketKey)
-		return
-	}
-	if ticket, err = proto.ExtractTicket(name, key); err != nil {
-		err = fmt.Errorf("extractTicket failed: %s from ticket %s", err.Error(), name)
-		return
-	}
-	if time.Now().Unix() >= ticket.Exp {
-		err = fmt.Errorf("ticket expired")
-		return
-	}
-	//TODO 未验证verifier
-	return
-}
-
 func extractName(r *http.Request) (name string, err error) {
 	if name = r.FormValue(nameKey); name == "" {
 		err = keyNotFound(nameKey)
@@ -1280,5 +1251,69 @@ func extractName(r *http.Request) (name string, err error) {
 		return "", errors.New("name can only be number and letters")
 	}
 
+	return
+}
+
+func parseAndCheckTicket(r *http.Request, key []byte) (err error) {
+	var (
+		plaintext []byte
+		jobj      proto.APIAccessReq
+	)
+
+	if err = r.ParseForm(); err != nil {
+		return
+	}
+
+	if plaintext, err = extractClientReqInfo(r); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
+		return
+	}
+
+	return extractTicketMess(jobj, key)
+}
+
+func extractClientReqInfo(r *http.Request) (plaintext []byte, err error) {
+	var (
+		message string
+	)
+	if err = r.ParseForm(); err != nil {
+		return
+	}
+
+	if message = r.FormValue(proto.ClientMessage); message == "" {
+		err = keyNotFound(proto.ClientMessage)
+		return
+	}
+
+	if plaintext, err = cryptoutil.Base64Decode(message); err != nil {
+		return
+	}
+
+	return
+}
+
+func extractTicketMess(req proto.APIAccessReq, key []byte) (err error) {
+	var (
+		ticket cryptoutil.Ticket
+	)
+	if ticket, err = proto.ExtractTicket(req.Ticket, key); err != nil {
+		err = fmt.Errorf("extractTicket failed: %s from ticket %s", err.Error(), req.Ticket)
+		return
+	}
+	if time.Now().Unix() >= ticket.Exp {
+		err = fmt.Errorf("ticket expired")
+		return
+	}
+	if _, err = proto.ParseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
+		err = fmt.Errorf("parseVerifier failed: %s", err.Error())
+		return
+	}
+	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, req.Type, proto.APIAccess); err != nil {
+		err = fmt.Errorf("CheckAPIAccessCaps failed: %s", err.Error())
+		return
+	}
 	return
 }

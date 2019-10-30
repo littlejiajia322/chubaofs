@@ -16,6 +16,7 @@ package meta
 
 import (
 	"fmt"
+	"github.com/chubaofs/chubaofs/clientv2/fs"
 	"strings"
 	"sync"
 	"syscall"
@@ -73,9 +74,12 @@ type MetaWrapper struct {
 
 	totalSize uint64
 	usedSize  uint64
+
+	accessToken proto.APIAccessReq
+	sessionKey  string
 }
 
-func NewMetaWrapper(volname, owner, masterHosts string) (*MetaWrapper, error) {
+func NewMetaWrapper(volname, owner, masterHosts string, ticket fs.Ticket) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
 	mw.volname = volname
 	mw.owner = owner
@@ -88,6 +92,10 @@ func NewMetaWrapper(volname, owner, masterHosts string) (*MetaWrapper, error) {
 	mw.partitions = make(map[uint64]*MetaPartition)
 	mw.ranges = btree.New(32)
 	mw.rwPartitions = make([]*MetaPartition, 0)
+	mw.accessToken.ClientID = volname
+	mw.accessToken.ServiceID = proto.MasterServiceID
+	mw.accessToken.Ticket = ticket.Ticket
+	mw.sessionKey = ticket.SessionKey
 	mw.updateClusterInfo()
 	mw.updateVolStatInfo()
 
