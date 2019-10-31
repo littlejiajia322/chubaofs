@@ -104,10 +104,6 @@ func (m *Server) proxy(w http.ResponseWriter, r *http.Request) {
 
 func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.LogInfof("URL[%v],remoteAddr[%v]", r.URL, r.RemoteAddr)
-	if err := parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
-		return
-	}
 	switch r.URL.Path {
 	case proto.AdminGetCluster:
 		m.getCluster(w, r)

@@ -76,15 +76,6 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 
 // fetch and update cluster info if successful
 func (mw *MetaWrapper) updateClusterInfo() error {
-	paras := make(map[string]string, 0)
-	//TODO 需要验证response吗,ts
-	mw.accessToken.Type = proto.MsgMasterUpdateClusterInfoReq
-	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
-	if err != nil {
-		log.LogWarnf("updateClusterInfo generate token failed: err(%v)", err)
-		return err
-	}
-	paras["token"] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.AdminGetIP, nil, nil)
 	if err != nil {
 		log.LogWarnf("updateClusterInfo request: err(%v)", err)
@@ -105,13 +96,6 @@ func (mw *MetaWrapper) updateClusterInfo() error {
 func (mw *MetaWrapper) updateVolStatInfo() error {
 	params := make(map[string]string)
 	params["name"] = mw.volname
-	mw.accessToken.Type = proto.MsgMasterUpdateVolStateInfoReq
-	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
-	if err != nil {
-		log.LogWarnf("updateVolStatInfo generate token failed: err(%v)", err)
-		return err
-	}
-	params["token"] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.ClientVolStat, params, nil)
 	if err != nil {
 		log.LogWarnf("updateVolStatInfo request: err(%v)", err)

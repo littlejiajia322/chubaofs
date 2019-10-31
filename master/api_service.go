@@ -1131,6 +1131,10 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		authKey string
 		vol     *Vol
 	)
+	if err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeInvalidTicket, Msg: err.Error()})
+		return
+	}
 	if name, authKey, err = parseRequestToGetVol(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
 		return

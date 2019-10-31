@@ -27,16 +27,16 @@ const (
 	AdminCreateVol                 = "/admin/createVol"
 	AdminGetVol                    = "/admin/getVol"
 	AdminClusterFreeze             = "/cluster/freeze"
-	AdminGetIP                     = "/admin/getIp" //
+	AdminGetIP                     = "/admin/getIp"
 	AdminCreateMP                  = "/metaPartition/create"
 	AdminSetMetaNodeThreshold      = "/threshold/set"
 
 	// Client APIs
 	ClientDataPartitions = "/client/partitions"
-	ClientVol            = "/client/vol" //
+	ClientVol            = "/client/vol"
 	ClientMetaPartition  = "/client/metaPartition"
 	ClientVolStat        = "/client/volStat"
-	ClientMetaPartitions = "/client/metaPartitions" //master先加上
+	ClientMetaPartitions = "/client/metaPartitions"
 
 	//raft node APIs
 	AddRaftNode    = "/raftNode/add"

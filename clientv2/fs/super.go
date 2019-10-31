@@ -46,11 +46,14 @@ type MountOption struct {
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
-	ClientKey     string
-	Ticket        Ticket
-	TicketHost    string
-	EnableHTTPS   bool
-	CertFile      string
+	TicketMess    TicketMess
+}
+
+type TicketMess struct {
+	ClientKey   string
+	TicketHost  string
+	EnableHTTPS bool
+	CertFile    string
 }
 
 type Super struct {
@@ -65,15 +68,6 @@ type Super struct {
 	orphan      *OrphanInodeList
 	enSyncWrite bool
 	keepCache   bool
-	//TODO ticket写到Super或者wrap中
-}
-
-//the ticket from authnode
-type Ticket struct {
-	ID         string `json:"client_id"`
-	SessionKey string `json:"session_key"`
-	ServiceID  string `json:"service_id"`
-	Ticket     string `json:"ticket"`
 }
 
 var (
@@ -82,12 +76,12 @@ var (
 
 func NewSuper(opt *MountOption) (s *Super, err error) {
 	s = new(Super)
-	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.Ticket)
+	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.TicketMess)
 	if err != nil {
 		return nil, errors.Trace(err, "NewMetaWrapper failed!")
 	}
 
-	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, opt.Ticket, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
+	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
 	if err != nil {
 		return nil, errors.Trace(err, "NewExtentClient failed!")
 	}

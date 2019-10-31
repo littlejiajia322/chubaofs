@@ -18,7 +18,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/chubaofs/chubaofs/clientv2/fs"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"math/rand"
 	"net/http"
@@ -55,12 +54,10 @@ type Wrapper struct {
 	partitions            map[uint64]*DataPartition
 	rwPartition           []*DataPartition
 	localLeaderPartitions []*DataPartition
-	accessToken           proto.APIAccessReq
-	sessionKey            string
 }
 
 // NewDataPartitionWrapper returns a new data partition wrapper.
-func NewDataPartitionWrapper(volName, masterHosts string, ticket fs.Ticket) (w *Wrapper, err error) {
+func NewDataPartitionWrapper(volName, masterHosts string) (w *Wrapper, err error) {
 	masters := strings.Split(masterHosts, ",")
 	w = new(Wrapper)
 	w.masters = masters
@@ -70,10 +67,6 @@ func NewDataPartitionWrapper(volName, masterHosts string, ticket fs.Ticket) (w *
 	w.volName = volName
 	w.rwPartition = make([]*DataPartition, 0)
 	w.partitions = make(map[uint64]*DataPartition)
-	w.accessToken.ClientID = volName
-	w.accessToken.ServiceID = proto.MasterServiceID
-	w.accessToken.Ticket = ticket.Ticket
-	w.sessionKey = ticket.SessionKey
 	if err = w.updateClusterInfo(); err != nil {
 		err = errors.Trace(err, "NewDataPartitionWrapper:")
 		return
@@ -91,19 +84,11 @@ func (w *Wrapper) GetClusterName() string {
 	return w.clusterName
 }
 func (w *Wrapper) updateClusterInfo() error {
-	paras := make(map[string]string, 0)
-	w.accessToken.Type = proto.MsgMasterUpdateClusterInfoReq
-	tokenMessage, err := genMasterToken(w.accessToken, w.sessionKey)
-	if err != nil {
-		log.LogWarnf("UpdateClusterInfo generate token failed: err(%v)", err)
-		return err
-	}
-	paras["token"] = tokenMessage
 	masterHelper := util.NewMasterHelper()
 	for _, ip := range w.masters {
 		masterHelper.AddNode(ip)
 	}
-	body, err := masterHelper.Request(http.MethodPost, proto.AdminGetIP, paras, nil)
+	body, err := masterHelper.Request(http.MethodPost, proto.AdminGetIP, nil, nil)
 	if err != nil {
 		log.LogWarnf("UpdateClusterInfo request: err(%v)", err)
 		return err
@@ -133,13 +118,6 @@ func (w *Wrapper) update() {
 func (w *Wrapper) updateDataPartition() error {
 	paras := make(map[string]string, 0)
 	paras["name"] = w.volName
-	//TODO 需要验证response吗,ts
-	w.accessToken.Type = proto.MsgMasterUpdateDataPartitionReq
-	tokenMessage, err := genMasterToken(w.accessToken, w.sessionKey)
-	if err != nil {
-		return errors.Trace(err, "updateDataPartition: generate token failed!")
-	}
-	paras["token"] = tokenMessage
 	msg, err := MasterHelper.Request(http.MethodGet, proto.ClientDataPartitions, paras, nil)
 	if err != nil {
 		return errors.Trace(err, "updateDataPartition: request to master failed!")

@@ -61,6 +61,7 @@ var (
 	ErrAuthAPIAccessGenRespError       = errors.New("auth API access response error")
 	ErrKeyNotExists                    = errors.New("key not exists")
 	ErrDuplicateKey                    = errors.New("duplicate key")
+	ErrInvalidTicket                   = errors.New("invalid ticket")
 )
 
 // http response error code and error message definitions
@@ -102,6 +103,7 @@ const (
 	ErrCodeAuthAPIAccessGenRespError
 	ErrCodeAuthRaftNodeGenRespError
 	ErrCodeAuthReqRedirectError
+	ErrCodeInvalidTicket
 )
 
 // Err2CodeMap error map to code
@@ -141,4 +143,5 @@ var Err2CodeMap = map[error]int32{
 	ErrVolAuthKeyNotMatch:              ErrCodeVolAuthKeyNotMatch,
 	ErrAuthKeyStoreError:               ErrCodeAuthKeyStoreError,
 	ErrAuthAPIAccessGenRespError:       ErrCodeAuthAPIAccessGenRespError,
+	ErrInvalidTicket:                   ErrCodeInvalidTicket,
 }

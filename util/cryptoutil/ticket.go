@@ -2,7 +2,8 @@ package cryptoutil
 
 const (
 	TicketVersion = 1
-	TicketAge     = 24 * 60 * 60
+	TicketAge     = 5 * 60
+	//TicketAge     = 24 * 60 * 60		//TODO 改回
 )
 
 // CryptoKey store the session key

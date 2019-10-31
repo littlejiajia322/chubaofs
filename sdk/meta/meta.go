@@ -17,6 +17,10 @@ package meta
 import (
 	"fmt"
 	"github.com/chubaofs/chubaofs/clientv2/fs"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"syscall"
@@ -75,12 +79,29 @@ type MetaWrapper struct {
 	totalSize uint64
 	usedSize  uint64
 
+	Ticket      Ticket
 	accessToken proto.APIAccessReq
 	sessionKey  string
 }
 
-func NewMetaWrapper(volname, owner, masterHosts string, ticket fs.Ticket) (*MetaWrapper, error) {
+//the ticket from authnode
+type Ticket struct {
+	ID         string `json:"client_id"`
+	SessionKey string `json:"session_key"`
+	ServiceID  string `json:"service_id"`
+	Ticket     string `json:"ticket"`
+}
+
+func NewMetaWrapper(volname, owner, masterHosts string, ticketMess fs.TicketMess) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
+	ticket, err := getTicketFromAuthnode(volname, ticketMess)
+	if err != nil {
+		return nil, errors.Trace(err, "Get ticket from authnode failed!")
+	}
+	mw.accessToken.ClientID = volname
+	mw.accessToken.ServiceID = proto.MasterServiceID
+	mw.accessToken.Ticket = ticket.Ticket
+	mw.sessionKey = ticket.SessionKey
 	mw.volname = volname
 	mw.owner = owner
 	master := strings.Split(masterHosts, HostsSeparator)
@@ -92,10 +113,6 @@ func NewMetaWrapper(volname, owner, masterHosts string, ticket fs.Ticket) (*Meta
 	mw.partitions = make(map[uint64]*MetaPartition)
 	mw.ranges = btree.New(32)
 	mw.rwPartitions = make([]*MetaPartition, 0)
-	mw.accessToken.ClientID = volname
-	mw.accessToken.ServiceID = proto.MasterServiceID
-	mw.accessToken.Ticket = ticket.Ticket
-	mw.sessionKey = ticket.SessionKey
 	mw.updateClusterInfo()
 	mw.updateVolStatInfo()
 
@@ -173,4 +190,75 @@ func statusToErrno(status int) error {
 	default:
 	}
 	return syscall.EIO
+}
+
+func getTicketFromAuthnode(volName string, ticketMess fs.TicketMess) (ticket Ticket, err error) {
+	var (
+		key     []byte
+		ts      int64
+		msgResp proto.AuthGetTicketResp
+		body    []byte
+		url     string
+		client  *http.Client
+	)
+
+	key, err = cryptoutil.Base64Decode(ticketMess.ClientKey)
+	if err != nil {
+		return
+	}
+	//TODO 测试一下此处返回的ticket是什么
+	// construct request body
+	message := proto.AuthGetTicketReq{
+		Type:      proto.MsgAuthTicketReq,
+		ClientID:  volName,
+		ServiceID: "MasterService",
+	}
+
+	if message.Verifier, ts, err = cryptoutil.GenVerifier(key); err != nil {
+		return
+	}
+
+	if ticketMess.EnableHTTPS {
+		certFile := loadCertfile(ticketMess.CertFile)
+		url = "https://" + ticketMess.TicketHost + proto.ClientGetTicket
+		client, err = cryptoutil.CreateClientX(&certFile)
+		if err != nil {
+			return
+		}
+	} else {
+		url = "http://" + ticketMess.TicketHost + proto.ClientGetTicket
+		client = &http.Client{}
+	}
+
+	body, err = proto.SendData(client, url, message)
+
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("\n" + string(body) + "\n")
+
+	if msgResp, err = proto.ParseAuthGetTicketResp(body, key); err != nil {
+		return
+	}
+
+	if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, volName, "MasterService", ts); err != nil {
+		return
+	}
+
+	ticket.Ticket = msgResp.Ticket
+	ticket.ServiceID = msgResp.ServiceID
+	ticket.SessionKey = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
+	ticket.ID = volName
+
+	return
+}
+
+func loadCertfile(path string) (caCert []byte) {
+	var err error
+	caCert, err = ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }

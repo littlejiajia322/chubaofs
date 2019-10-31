@@ -24,7 +24,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	syslog "log"
 	"net/http"
 	_ "net/http/pprof"
@@ -44,7 +43,6 @@ import (
 	cfs "github.com/chubaofs/chubaofs/clientv2/fs"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/config"
-	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/exporter"
 	"github.com/chubaofs/chubaofs/util/log"
@@ -107,12 +105,6 @@ func main() {
 		daemonize.SignalOutcome(err)
 		os.Exit(1)
 	}
-	//TODO 位置？
-	opt.Ticket, err = getTicketFromAuthnode(opt.Volname, opt.ClientKey, opt.TicketHost, opt.EnableHTTPS, opt.CertFile)
-	if err != nil {
-		daemonize.SignalOutcome(err)
-		os.Exit(1)
-	}
 
 	exporter.Init(ModuleName, opt.Config)
 
@@ -142,7 +134,7 @@ func main() {
 	}
 
 	registerInterceptedSignal(opt.MountPoint)
-	//TODO 之前
+
 	mfs, err := mount(opt)
 	if err != nil {
 		daemonize.SignalOutcome(err)
@@ -256,11 +248,11 @@ func parseMountOption(cfg *config.Config) (*cfs.MountOption, error) {
 	opt.Rdonly = cfg.GetBool(proto.Rdonly)
 	opt.WriteCache = cfg.GetBool(proto.WriteCache)
 	opt.KeepCache = cfg.GetBool(proto.KeepCache)
-	opt.ClientKey = cfg.GetString(proto.ClientKey)
-	opt.TicketHost = cfg.GetString(proto.TicketHost)
-	opt.EnableHTTPS = cfg.GetBool(proto.EnableHTTPS)
-	if opt.EnableHTTPS {
-		opt.CertFile = cfg.GetString(proto.CertFile)
+	opt.TicketMess.ClientKey = cfg.GetString(proto.ClientKey)
+	opt.TicketMess.TicketHost = cfg.GetString(proto.TicketHost)
+	opt.TicketMess.EnableHTTPS = cfg.GetBool(proto.EnableHTTPS)
+	if opt.TicketMess.EnableHTTPS {
+		opt.TicketMess.CertFile = cfg.GetString(proto.CertFile)
 	}
 	//TODO
 	if opt.MountPoint == "" || opt.Volname == "" || opt.Owner == "" || opt.Master == "" {
@@ -299,75 +291,4 @@ func parseLogLevel(loglvl string) log.Level {
 		level = log.ErrorLevel
 	}
 	return level
-}
-
-func getTicketFromAuthnode(volName string, clientKey string, ticketHost string, enableHttps bool, certFilepath string) (ticket cfs.Ticket, err error) {
-	var (
-		key     []byte
-		ts      int64
-		msgResp proto.AuthGetTicketResp
-		body    []byte
-		url     string
-		client  *http.Client
-	)
-
-	key, err = cryptoutil.Base64Decode(clientKey)
-	if err != nil {
-		return
-	}
-	//TODO 测试一下此处返回的ticket是什么
-	// construct request body
-	message := proto.AuthGetTicketReq{
-		Type:      proto.MsgAuthTicketReq,
-		ClientID:  volName,
-		ServiceID: "MasterService",
-	}
-
-	if message.Verifier, ts, err = cryptoutil.GenVerifier(key); err != nil {
-		return
-	}
-
-	if enableHttps {
-		certFile := loadCertfile(certFilepath)
-		url = "https://" + ticketHost + proto.ClientGetTicket
-		client, err = cryptoutil.CreateClientX(&certFile)
-		if err != nil {
-			return
-		}
-	} else {
-		url = "http://" + ticketHost + proto.ClientGetTicket
-		client = &http.Client{}
-	}
-
-	body, err = proto.SendData(client, url, message)
-
-	if err != nil {
-		return
-	}
-
-	fmt.Printf("\n" + string(body) + "\n")
-
-	if msgResp, err = proto.ParseAuthGetTicketResp(body, key); err != nil {
-		return
-	}
-
-	if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, volName, "MasterService", ts); err != nil {
-		return
-	}
-
-	ticket.Ticket = msgResp.Ticket
-	ticket.ServiceID = msgResp.ServiceID
-	ticket.SessionKey = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
-	ticket.ID = volName
-
-	return
-}
-
-func loadCertfile(path string) (caCert []byte) {
-	var err error
-	caCert, err = ioutil.ReadFile(path)
-	if err != nil {
-		syslog.Fatal(err)
-	}
-	return
 }
