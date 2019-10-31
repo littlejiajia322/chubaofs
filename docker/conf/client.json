@@ -7,5 +7,7 @@
 	"logLevel": "info",
     "consulAddr": "http://192.168.0.100:8500",
     "exporterPort": 9500,
-	"profPort": "17410"
+	"profPort": "17410",
+	"ticketHost": "localhost:8080",
+	"enableHTTPS": "true"
 }

@@ -176,7 +176,10 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 }
 
 func getTicket() {
-	cfg := config.LoadConfigFile(flaginfo.ticket.key)
+	cfg, err := config.LoadConfigFile(flaginfo.ticket.key)
+	if err != nil {
+		panic(err)
+	}
 	key, err := cryptoutil.Base64Decode(cfg.GetString("key"))
 	if err != nil {
 		panic(err)
@@ -222,7 +225,10 @@ func accessAuthServer() {
 		panic(fmt.Errorf("wrong requst [%s]", flaginfo.api.request))
 	}
 
-	ticketCFG := config.LoadConfigFile(flaginfo.api.ticket)
+	ticketCFG, err := config.LoadConfigFile(flaginfo.api.ticket)
+	if err != nil {
+		panic(err)
+	}
 
 	apiReq := &proto.APIAccessReq{
 		Type:      msg,
@@ -239,7 +245,10 @@ func accessAuthServer() {
 	}
 	apiReq.Ticket = ticketCFG.GetString("ticket")
 
-	dataCFG := config.LoadConfigFile(flaginfo.api.data)
+	dataCFG, err := config.LoadConfigFile(flaginfo.api.data)
+	if err != nil {
+		panic(err)
+	}
 
 	switch flaginfo.api.request {
 	case CreateKey:
