@@ -308,6 +308,7 @@ type DataPartitionResponse struct {
 	ReplicaNum  uint8
 	Hosts       []string
 	LeaderAddr  string
+	Epoch       uint64
 }
 
 // DataPartitionsView defines the view of a data partition
@@ -335,13 +336,15 @@ type MetaPartitionView struct {
 type VolView struct {
 	Name           string
 	Status         uint8
+	FollowerRead   bool
 	MetaPartitions []*MetaPartitionView
 	DataPartitions []*DataPartitionResponse
 }
 
-func NewVolView(name string, status uint8) (view *VolView) {
+func NewVolView(name string, status uint8, followerRead bool) (view *VolView) {
 	view = new(VolView)
 	view.Name = name
+	view.FollowerRead = followerRead
 	view.Status = status
 	view.MetaPartitions = make([]*MetaPartitionView, 0)
 	view.DataPartitions = make([]*DataPartitionResponse, 0)
@@ -370,6 +373,7 @@ type SimpleVolView struct {
 	RwDpCnt      int
 	MpCnt        int
 	DpCnt        int
+	FollowerRead bool
 }
 
 // TODO 需要吗？AuthCheckRequest defines the request of checking the authorization to master API.

@@ -17,15 +17,18 @@ package fs
 import (
 	"fmt"
 	fs2 "github.com/chubaofs/chubaofs/clientv2/fs"
-	"github.com/chubaofs/chubaofs/util/errors"
 	"golang.org/x/net/context"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+
 	"github.com/chubaofs/chubaofs/sdk/data/stream"
 	"github.com/chubaofs/chubaofs/sdk/meta"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/log"
 	"github.com/chubaofs/chubaofs/util/ump"
 )
@@ -41,17 +44,15 @@ type MountOption struct {
 	IcacheTimeout int64
 	LookupValid   int64
 	AttrValid     int64
+	ReadRate      int64
+	WriteRate     int64
 	EnSyncWrite   int64
 	AutoInvalData int64
 	UmpDatadir    string
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
-	ClientKey     string
-	Ticket        fs2.Ticket
-	TicketHost    string
-	EnableHTTPS   bool
-	CertFile      string
+	TicketMess    fs2.TicketMess
 }
 
 // Super defines the struct of a super block.
@@ -79,12 +80,12 @@ var (
 // NewSuper returns a new Super.
 func NewSuper(opt *MountOption) (s *Super, err error) {
 	s = new(Super)
-	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.Ticket)
+	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.TicketMess)
 	if err != nil {
 		return nil, errors.Trace(err, "NewMetaWrapper failed!")
 	}
 
-	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, opt.Ticket, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
+	s.ec, err = stream.NewExtentClient(opt.Volname, opt.Master, opt.ReadRate, opt.WriteRate, s.mw.AppendExtentKey, s.mw.GetExtents, s.mw.Truncate)
 	if err != nil {
 		return nil, errors.Trace(err, "NewExtentClient failed!")
 	}
@@ -138,6 +139,37 @@ func (s *Super) Statfs(ctx context.Context, req *fuse.StatfsRequest, resp *fuse.
 // ClusterName returns the cluster name.
 func (s *Super) ClusterName() string {
 	return s.cluster
+}
+
+func (s *Super) GetRate(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(s.ec.GetRate()))
+}
+
+func (s *Super) SetRate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if rate := r.FormValue("read"); rate != "" {
+		val, err := strconv.Atoi(rate)
+		if err != nil {
+			w.Write([]byte("Set read rate failed\n"))
+		} else {
+			msg := s.ec.SetReadRate(val)
+			w.Write([]byte(fmt.Sprintf("Set read rate to %v successfully\n", msg)))
+		}
+	}
+
+	if rate := r.FormValue("write"); rate != "" {
+		val, err := strconv.Atoi(rate)
+		if err != nil {
+			w.Write([]byte("Set write rate failed\n"))
+		} else {
+			msg := s.ec.SetWriteRate(val)
+			w.Write([]byte(fmt.Sprintf("Set write rate to %v successfully\n", msg)))
+		}
+	}
 }
 
 func (s *Super) exporterKey(act string) string {
