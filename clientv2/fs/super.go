@@ -16,6 +16,7 @@ package fs
 
 import (
 	"fmt"
+	"github.com/chubaofs/chubaofs/util/auth"
 	"golang.org/x/net/context"
 	"net/http"
 	"strconv"
@@ -50,14 +51,7 @@ type MountOption struct {
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
-	TicketMess    TicketMess
-}
-
-type TicketMess struct {
-	ClientKey   string
-	TicketHost  string
-	EnableHTTPS bool
-	CertFile    string
+	TicketMess    auth.TicketMess
 }
 
 type Super struct {

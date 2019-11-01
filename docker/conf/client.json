@@ -8,6 +8,7 @@
     "consulAddr": "http://192.168.0.100:8500",
     "exporterPort": 9500,
 	"profPort": "17410",
-	"ticketHost": "localhost:8080",
-	"enableHTTPS": "true"
+    "clientKey": "TCEkVqXMFlodT9+w5l27ruXDV8219p73SNpX54LB1Sg=",
+	"ticketHost": "10.5.0.5:8080",
+	"enableHTTPS": "false"
 }

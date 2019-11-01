@@ -16,7 +16,7 @@ package fs
 
 import (
 	"fmt"
-	fs2 "github.com/chubaofs/chubaofs/clientv2/fs"
+	"github.com/chubaofs/chubaofs/util/auth"
 	"golang.org/x/net/context"
 	"net/http"
 	"strconv"
@@ -52,7 +52,7 @@ type MountOption struct {
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
-	TicketMess    fs2.TicketMess
+	TicketMess    auth.TicketMess
 }
 
 // Super defines the struct of a super block.

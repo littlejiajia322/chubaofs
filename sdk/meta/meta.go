@@ -16,7 +16,7 @@ package meta
 
 import (
 	"fmt"
-	"github.com/chubaofs/chubaofs/clientv2/fs"
+	"github.com/chubaofs/chubaofs/util/auth"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"io/ioutil"
 	"log"
@@ -92,7 +92,7 @@ type Ticket struct {
 	Ticket     string `json:"ticket"`
 }
 
-func NewMetaWrapper(volname, owner, masterHosts string, ticketMess fs.TicketMess) (*MetaWrapper, error) {
+func NewMetaWrapper(volname, owner, masterHosts string, ticketMess auth.TicketMess) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
 	ticket, err := getTicketFromAuthnode(volname, ticketMess)
 	if err != nil {
@@ -192,7 +192,7 @@ func statusToErrno(status int) error {
 	return syscall.EIO
 }
 
-func getTicketFromAuthnode(volName string, ticketMess fs.TicketMess) (ticket Ticket, err error) {
+func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket Ticket, err error) {
 	var (
 		key     []byte
 		ts      int64
