@@ -59,7 +59,7 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		log.LogWarnf("fetchVolumeView generate token failed: err(%v)", err)
 		return nil, err
 	}
-	params["token"] = tokenMessage
+	params[proto.ClientMessage] = tokenMessage
 	body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
 	if err != nil {
 		log.LogWarnf("fetchVolumeView request: err(%v)", err)

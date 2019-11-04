@@ -1,5 +1,3 @@
-
-
 version: '2'
 
 services:
@@ -8,34 +6,33 @@ services:
     image: cfs1
     restart: always
     ports:
-     - "8080:8083"
+      - "8080:8083"
     networks:
-      vpcbr:
-        ipv4_address: 10.5.0.5
+      extnetwork:
+        ipv4_address: 192.168.0.14
   cfs2:
     container_name: cfs2
     image: cfs2
     restart: always
     ports:
-     - "8081:8084"
+      - "8081:8084"
     networks:
-      vpcbr:
-        ipv4_address: 10.5.0.6
+      extnetwork:
+        ipv4_address: 192.168.0.15
 
   cfs3:
     container_name: cfs3
     image: cfs3
     restart: always
     ports:
-     - "8082:8085"
+      - "8082:8085"
     networks:
-      vpcbr:
-        ipv4_address: 10.5.0.7
+      extnetwork:
+        ipv4_address: 192.168.0.16
 
 networks:
-  vpcbr:
-    driver: bridge
+  extnetwork:
     ipam:
-     config:
-       - subnet: 10.5.0.0/16
-         gateway: 10.5.0.1
+      config:
+        - subnet: 192.168.0.0/24
+          gateway: 192.168.0.1
