@@ -3,6 +3,7 @@ package authnode
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"net/http"
 	"net/http/httputil"
 
@@ -131,17 +132,17 @@ func (m *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		)
 		target := "https://" + m.leaderInfo.addr + r.URL.Path
 		if plaintext, err = m.extractClientReqInfo(r); err != nil {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 			return
 		}
 		res, err = proto.SendBytes(m.authProxy.client, target, plaintext)
 		if err != nil {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthReqRedirectError, Msg: "[proxy] failed: " + err.Error()})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthReqRedirectError, Msg: "[proxy] failed: " + err.Error()})
 			return
 		}
 		fmt.Printf("\n" + string(res) + "\n")
 		if jobj, err = proto.ParseAuthReply(res); err != nil {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthReqRedirectError, Msg: "Target Server failed: " + err.Error()})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthReqRedirectError, Msg: "Target Server failed: " + err.Error()})
 			return
 		}
 		sendOkReply(w, r, newSuccessHTTPAuthReply(jobj.Data))

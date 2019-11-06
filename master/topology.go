@@ -219,7 +219,7 @@ func (t *topology) getAllNodeSet() (nsc nodeSetCollection) {
 func (t *topology) allocNodeSetForDataNode(replicaNum uint8) (ns *nodeSet, err error) {
 	nset := t.getAllNodeSet()
 	if nset == nil {
-		return nil, proto.ErrNoNodeSetToCreateDataPartition
+		return nil, errors.ErrNoNodeSetToCreateDataPartition
 	}
 	t.nsLock.Lock()
 	defer t.nsLock.Unlock()
@@ -233,14 +233,14 @@ func (t *topology) allocNodeSetForDataNode(replicaNum uint8) (ns *nodeSet, err e
 			return
 		}
 	}
-	log.LogError(fmt.Sprintf("action[allocNodeSetForDataNode],err:%v", proto.ErrNoNodeSetToCreateDataPartition))
-	return nil, proto.ErrNoNodeSetToCreateDataPartition
+	log.LogError(fmt.Sprintf("action[allocNodeSetForDataNode],err:%v", errors.ErrNoNodeSetToCreateDataPartition))
+	return nil, errors.ErrNoNodeSetToCreateDataPartition
 }
 
 func (t *topology) allocNodeSetForMetaNode(replicaNum uint8) (ns *nodeSet, err error) {
 	nset := t.getAllNodeSet()
 	if nset == nil {
-		return nil, proto.ErrNoNodeSetToCreateMetaPartition
+		return nil, errors.ErrNoNodeSetToCreateMetaPartition
 	}
 	t.nsLock.Lock()
 	defer t.nsLock.Unlock()
@@ -254,8 +254,8 @@ func (t *topology) allocNodeSetForMetaNode(replicaNum uint8) (ns *nodeSet, err e
 			return
 		}
 	}
-	log.LogError(fmt.Sprintf("action[allocNodeSetForMetaNode],err:%v", proto.ErrNoNodeSetToCreateMetaPartition))
-	return nil, proto.ErrNoNodeSetToCreateMetaPartition
+	log.LogError(fmt.Sprintf("action[allocNodeSetForMetaNode],err:%v", errors.ErrNoNodeSetToCreateMetaPartition))
+	return nil, errors.ErrNoNodeSetToCreateMetaPartition
 }
 
 type nodeSetCollection []*nodeSet
@@ -484,8 +484,8 @@ func (ns *nodeSet) allocRacks(replicaNum int, excludeRack []string) (racks []*Ra
 		}
 	}
 	if len(candidateRacks) == 0 {
-		log.LogError(fmt.Sprintf("action[allocRacks],err:%v", proto.ErrNoRackToCreateDataPartition))
-		return nil, proto.ErrNoRackToCreateDataPartition
+		log.LogError(fmt.Sprintf("action[allocRacks],err:%v", errors.ErrNoRackToCreateDataPartition))
+		return nil, errors.ErrNoRackToCreateDataPartition
 	}
 	racks = candidateRacks
 	err = nil
@@ -559,9 +559,9 @@ func (rack *Rack) getAvailDataNodeHosts(excludeHosts []string, replicaNum int) (
 	maxTotal := rack.getDataNodeMaxTotal()
 	nodeTabs, availCarryCount := rack.getAvailCarryDataNodeTab(maxTotal, excludeHosts, replicaNum)
 	if len(nodeTabs) < replicaNum {
-		err = proto.ErrNoDataNodeToWrite
+		err = errors.ErrNoDataNodeToWrite
 		err = fmt.Errorf(getAvailDataNodeHostsErr+" err:%v ,ActiveNodeCount:%v  MatchNodeCount:%v  ",
-			proto.ErrNoDataNodeToWrite, rack.dataNodeCount(), len(nodeTabs))
+			errors.ErrNoDataNodeToWrite, rack.dataNodeCount(), len(nodeTabs))
 		return
 	}
 

@@ -101,7 +101,7 @@ func (m *Server) setMetaNodeThreshold(w http.ResponseWriter, r *http.Request) {
 		err       error
 	)
 	if threshold, err = parseAndExtractThreshold(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if err = m.cluster.setMetaNodeThreshold(float32(threshold)); err != nil {
@@ -125,7 +125,7 @@ func (m *Server) setupAutoAllocation(w http.ResponseWriter, r *http.Request) {
 		err    error
 	)
 	if status, err = parseAndExtractStatus(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if err = m.cluster.setDisableAutoAllocate(status); err != nil {
@@ -214,7 +214,7 @@ func (m *Server) createMetaPartition(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if volName, start, err = validateRequestToCreateMetaPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
@@ -237,12 +237,12 @@ func (m *Server) createDataPartition(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if reqCreateCount, volName, err = parseRequestToCreateDataPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if vol, err = m.cluster.getVol(volName); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 	lastTotalDataPartitions = len(vol.dataPartitions.partitions)
@@ -271,22 +271,22 @@ func (m *Server) getDataPartition(w http.ResponseWriter, r *http.Request) {
 		err         error
 	)
 	if partitionID, volName, err = parseRequestToGetDataPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if volName != "" {
 		if vol, err = m.cluster.getVol(volName); err != nil {
-			sendErrReply(w, r, newErrHTTPReply(proto.ErrDataPartitionNotExists))
+			sendErrReply(w, r, newErrHTTPReply(errors.ErrDataPartitionNotExists))
 			return
 		}
 		if dp, err = vol.getDataPartitionByID(partitionID); err != nil {
-			sendErrReply(w, r, newErrHTTPReply(proto.ErrDataPartitionNotExists))
+			sendErrReply(w, r, newErrHTTPReply(errors.ErrDataPartitionNotExists))
 			return
 		}
 	} else {
 		if dp, err = m.cluster.getDataPartitionByID(partitionID); err != nil {
-			sendErrReply(w, r, newErrHTTPReply(proto.ErrDataPartitionNotExists))
+			sendErrReply(w, r, newErrHTTPReply(errors.ErrDataPartitionNotExists))
 			return
 		}
 	}
@@ -304,12 +304,12 @@ func (m *Server) loadDataPartition(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if partitionID, err = parseRequestToLoadDataPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if dp, err = m.cluster.getDataPartitionByID(partitionID); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrDataPartitionNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrDataPartitionNotExists))
 		return
 	}
 
@@ -330,11 +330,11 @@ func (m *Server) decommissionDataPartition(w http.ResponseWriter, r *http.Reques
 	)
 
 	if addr, partitionID, err = parseRequestToDecommissionDataPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if dp, err = m.cluster.getDataPartitionByID(partitionID); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrDataPartitionNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrDataPartitionNotExists))
 		return
 	}
 	if err = m.cluster.decommissionDataPartition(addr, dp, handleDataPartitionOfflineErr); err != nil {
@@ -355,7 +355,7 @@ func (m *Server) markDeleteVol(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if name, authKey, err = parseRequestToDeleteVol(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if err = m.cluster.markDeleteVol(name, authKey); err != nil {
@@ -379,17 +379,17 @@ func (m *Server) updateVol(w http.ResponseWriter, r *http.Request) {
 		vol          *Vol
 	)
 	if name, authKey, capacity, replicaNum, err = parseRequestToUpdateVol(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeVolNotExists, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeVolNotExists, Msg: err.Error()})
 		return
 	}
 	var followerReadStr string
 	if followerReadStr = r.FormValue(followerReadKey); followerReadStr != "" {
 		if followerRead, err = strconv.ParseBool(followerReadStr); err != nil {
-			sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 			return
 		}
 		vol.FollowerRead = followerRead
@@ -417,7 +417,7 @@ func (m *Server) createVol(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if name, owner, mpCount, size, capacity, dpReplicaNum, followerRead, err = parseRequestToCreateVol(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.createVol(name, owner, mpCount, size, capacity, dpReplicaNum, followerRead); err != nil {
@@ -436,11 +436,11 @@ func (m *Server) getVolSimpleInfo(w http.ResponseWriter, r *http.Request) {
 		volView *proto.SimpleVolView
 	)
 	if name, err = parseAndExtractName(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 	volView = newSimpleView(vol)
@@ -470,7 +470,7 @@ func (m *Server) addDataNode(w http.ResponseWriter, r *http.Request) {
 		err      error
 	)
 	if nodeAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
@@ -488,12 +488,12 @@ func (m *Server) getDataNode(w http.ResponseWriter, r *http.Request) {
 		err      error
 	)
 	if nodeAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if dataNode, err = m.cluster.dataNode(nodeAddr); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrDataNodeNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrDataNodeNotExists))
 		return
 	}
 	dataNode.PersistenceDataPartitions = m.cluster.getAllDataPartitionIDByDatanode(nodeAddr)
@@ -510,12 +510,12 @@ func (m *Server) dataNodeOffline(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if offLineAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if node, err = m.cluster.dataNode(offLineAddr); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrDataNodeNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrDataNodeNotExists))
 		return
 	}
 	if err = m.cluster.dataNodeOffLine(node); err != nil {
@@ -538,12 +538,12 @@ func (m *Server) decommissionDisk(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if offLineAddr, diskPath, err = parseRequestToDecommissionNode(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if node, err = m.cluster.dataNode(offLineAddr); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrDataNodeNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrDataNodeNotExists))
 		return
 	}
 	badPartitions = node.badPartitions(diskPath, m.cluster)
@@ -569,7 +569,7 @@ func (m *Server) decommissionDisk(w http.ResponseWriter, r *http.Request) {
 func (m *Server) handleDataNodeTaskResponse(w http.ResponseWriter, r *http.Request) {
 	tr, err := parseRequestToGetTaskResponse(r)
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	sendOkReply(w, r, newSuccessHTTPReply(fmt.Sprintf("%v", http.StatusOK)))
@@ -583,7 +583,7 @@ func (m *Server) addMetaNode(w http.ResponseWriter, r *http.Request) {
 		err      error
 	)
 	if nodeAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
@@ -601,12 +601,12 @@ func (m *Server) getMetaNode(w http.ResponseWriter, r *http.Request) {
 		err      error
 	)
 	if nodeAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if metaNode, err = m.cluster.metaNode(nodeAddr); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrMetaNodeNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrMetaNodeNotExists))
 		return
 	}
 	metaNode.PersistenceMetaPartitions = m.cluster.getAllMetaPartitionIDByMetaNode(nodeAddr)
@@ -622,11 +622,11 @@ func (m *Server) decommissionMetaPartition(w http.ResponseWriter, r *http.Reques
 		err         error
 	)
 	if nodeAddr, partitionID, err = parseRequestToDecommissionMetaPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if mp, err = m.cluster.getMetaPartitionByID(partitionID); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrMetaPartitionNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrMetaPartitionNotExists))
 		return
 	}
 	if err = m.cluster.decommissionMetaPartition(nodeAddr, mp); err != nil {
@@ -646,12 +646,12 @@ func (m *Server) loadMetaPartition(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if partitionID, err = parseRequestToLoadMetaPartition(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if mp, err = m.cluster.getMetaPartitionByID(partitionID); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrMetaPartitionNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrMetaPartitionNotExists))
 		return
 	}
 
@@ -669,12 +669,12 @@ func (m *Server) decommissionMetaNode(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if offLineAddr, err = parseAndExtractNodeAddr(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if metaNode, err = m.cluster.metaNode(offLineAddr); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrMetaNodeNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrMetaNodeNotExists))
 		return
 	}
 	m.cluster.decommissionMetaNode(metaNode)
@@ -685,7 +685,7 @@ func (m *Server) decommissionMetaNode(w http.ResponseWriter, r *http.Request) {
 func (m *Server) handleMetaNodeTaskResponse(w http.ResponseWriter, r *http.Request) {
 	tr, err := parseRequestToGetTaskResponse(r)
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	sendOkReply(w, r, newSuccessHTTPReply(fmt.Sprintf("%v", http.StatusOK)))
@@ -698,7 +698,7 @@ func (m *Server) addRaftNode(w http.ResponseWriter, r *http.Request) {
 	var msg string
 	id, addr, err := parseRequestForRaftNode(r)
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
@@ -715,7 +715,7 @@ func (m *Server) removeRaftNode(w http.ResponseWriter, r *http.Request) {
 	var msg string
 	id, addr, err := parseRequestForRaftNode(r)
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	err = m.cluster.removeRaftNode(id, addr)
@@ -1040,18 +1040,18 @@ func validateRequestToCreateMetaPartition(r *http.Request) (volName string, star
 }
 
 func newSuccessHTTPReply(data interface{}) *proto.HTTPReply {
-	return &proto.HTTPReply{Code: proto.ErrCodeSuccess, Msg: proto.ErrSuc.Error(), Data: data}
+	return &proto.HTTPReply{Code: errors.ErrCodeSuccess, Msg: errors.ErrSuc.Error(), Data: data}
 }
 
 func newErrHTTPReply(err error) *proto.HTTPReply {
 	if err == nil {
 		return newSuccessHTTPReply("")
 	}
-	code, ok := proto.Err2CodeMap[err]
+	code, ok := errors.Err2CodeMap[err]
 	if ok {
 		return &proto.HTTPReply{Code: code, Msg: err.Error()}
 	}
-	return &proto.HTTPReply{Code: proto.ErrCodeInternalError, Msg: err.Error()}
+	return &proto.HTTPReply{Code: errors.ErrCodeInternalError, Msg: err.Error()}
 }
 
 func sendOkReply(w http.ResponseWriter, r *http.Request, httpReply *proto.HTTPReply) (err error) {
@@ -1117,11 +1117,11 @@ func (m *Server) getMetaPartitions(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if name, err = parseAndExtractName(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 	send(w, r, vol.getMpsCache())
@@ -1137,11 +1137,11 @@ func (m *Server) getDataPartitions(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if name, err = parseAndExtractName(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 
@@ -1164,27 +1164,27 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		ts           int64
 	)
 	if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
-		if err == proto.ErrExpiredTicket {
+		if err == errors.ErrExpiredTicket {
 			sendErrReply(w, r, newErrHTTPReply(err))
 			return
 		}
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeInvalidTicket, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeInvalidTicket, Msg: err.Error()})
 		return
 	}
 	if name, authKey, err = parseRequestToGetVol(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 	if !matchKey(vol.Owner, authKey) {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolAuthKeyNotMatch))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolAuthKeyNotMatch))
 		return
 	}
 	if checkMessage, err = genCheckMessage(&jobj, ts, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
 		return
 	}
 	resp := proto.GetVolResponse{
@@ -1203,11 +1203,11 @@ func (m *Server) getVolStatInfo(w http.ResponseWriter, r *http.Request) {
 		vol  *Vol
 	)
 	if name, err = parseAndExtractName(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if vol, err = m.cluster.getVol(name); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolNotExists))
 		return
 	}
 	sendOkReply(w, r, newSuccessHTTPReply(volStat(vol)))
@@ -1247,11 +1247,11 @@ func (m *Server) getMetaPartition(w http.ResponseWriter, r *http.Request) {
 		mp          *MetaPartition
 	)
 	if partitionID, err = parseAndExtractPartitionInfo(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 	if mp, err = m.cluster.getMetaPartitionByID(partitionID); err != nil {
-		sendErrReply(w, r, newErrHTTPReply(proto.ErrMetaPartitionNotExists))
+		sendErrReply(w, r, newErrHTTPReply(errors.ErrMetaPartitionNotExists))
 		return
 	}
 	sendOkReply(w, r, newSuccessHTTPReply(mp))
@@ -1353,7 +1353,7 @@ func extractTicketMess(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.T
 		return
 	}
 	if time.Now().Unix() >= ticket.Exp {
-		err = proto.ErrExpiredTicket
+		err = errors.ErrExpiredTicket
 		return
 	}
 	if ts, err = proto.ParseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {

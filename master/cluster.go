@@ -440,7 +440,7 @@ func (c *Cluster) getVol(volName string) (vol *Vol, err error) {
 	defer c.volMutex.RUnlock()
 	vol, ok := c.vols[volName]
 	if !ok {
-		err = proto.ErrVolNotExists
+		err = errors.ErrVolNotExists
 	}
 	return
 }
@@ -459,17 +459,17 @@ func (c *Cluster) markDeleteVol(name, authKey string) (err error) {
 	)
 	if vol, err = c.getVol(name); err != nil {
 		log.LogErrorf("action[markDeleteVol] err[%v]", err)
-		return proto.ErrVolNotExists
+		return errors.ErrVolNotExists
 	}
 	serverAuthKey = vol.Owner
 	if !matchKey(serverAuthKey, authKey) {
-		return proto.ErrVolAuthKeyNotMatch
+		return errors.ErrVolAuthKeyNotMatch
 	}
 
 	vol.Status = markDelete
 	if err = c.syncUpdateVol(vol); err != nil {
 		vol.Status = normal
-		return proto.ErrPersistenceByRaft
+		return errors.ErrPersistenceByRaft
 	}
 	return
 }
@@ -657,7 +657,7 @@ func (c *Cluster) chooseTargetDataNodes(replicaNum int) (hosts []string, peers [
 		peers = append(peers, slavePeers...)
 	}
 	if len(hosts) != replicaNum {
-		return nil, nil, proto.ErrNoDataNodeToCreateDataPartition
+		return nil, nil, errors.ErrNoDataNodeToCreateDataPartition
 	}
 
 	return
@@ -863,7 +863,7 @@ func (c *Cluster) syncDecommissionDataPartition(dp *DataPartition, addr string, 
 	dp.logDecommissionedDataPartition(addr)
 	leaderAddr := dp.getLeaderAddr()
 	if leaderAddr == "" {
-		err = proto.ErrNoLeader
+		err = errors.ErrNoLeader
 		return
 	}
 
@@ -931,14 +931,14 @@ func (c *Cluster) updateVol(name, authKey string, capacity uint64, replicaNum ui
 	)
 	if vol, err = c.getVol(name); err != nil {
 		log.LogErrorf("action[updateVol] err[%v]", err)
-		err = proto.ErrVolNotExists
+		err = errors.ErrVolNotExists
 		goto errHandler
 	}
 	vol.Lock()
 	defer vol.Unlock()
 	serverAuthKey = vol.Owner
 	if !matchKey(serverAuthKey, authKey) {
-		return proto.ErrVolAuthKeyNotMatch
+		return errors.ErrVolAuthKeyNotMatch
 	}
 	if capacity < vol.Capacity {
 		err = fmt.Errorf("capacity[%v] less than old capacity[%v]", capacity, vol.Capacity)
@@ -957,7 +957,7 @@ func (c *Cluster) updateVol(name, authKey string, capacity uint64, replicaNum ui
 		vol.dpReplicaNum = oldDpReplicaNum
 		vol.FollowerRead = oldFollowerRead
 		log.LogErrorf("action[updateVol] vol[%v] err[%v]", name, err)
-		err = proto.ErrPersistenceByRaft
+		err = errors.ErrPersistenceByRaft
 		goto errHandler
 	}
 	return
@@ -1013,7 +1013,7 @@ func (c *Cluster) doCreateVol(name, owner string, dpSize, capacity uint64, dpRep
 	c.createVolMutex.Lock()
 	defer c.createVolMutex.Unlock()
 	if _, err = c.getVol(name); err == nil {
-		err = proto.ErrDuplicateVol
+		err = errors.ErrDuplicateVol
 		goto errHandler
 	}
 	id, err = c.idAlloc.allocateCommonID()
@@ -1044,12 +1044,12 @@ func (c *Cluster) updateInodeIDRange(volName string, start uint64) (err error) {
 
 	if vol, err = c.getVol(volName); err != nil {
 		log.LogErrorf("action[updateInodeIDRange]  vol [%v] not found", volName)
-		return proto.ErrVolNotExists
+		return errors.ErrVolNotExists
 	}
 	maxPartitionID = vol.maxPartitionID()
 	if partition, err = vol.metaPartition(maxPartitionID); err != nil {
 		log.LogErrorf("action[updateInodeIDRange]  mp[%v] not found", maxPartitionID)
-		return proto.ErrMetaPartitionNotExists
+		return errors.ErrMetaPartitionNotExists
 	}
 	if err = vol.splitMetaPartition(c, partition, start); err != nil {
 		log.LogErrorf("action[updateInodeIDRange]  mp[%v] err[%v]", partition.PartitionID, err)
@@ -1086,7 +1086,7 @@ func (c *Cluster) chooseTargetMetaHosts(replicaNum int) (hosts []string, peers [
 	hosts = append(hosts, slaveAddrs...)
 	peers = append(peers, slavePeers...)
 	if len(hosts) != replicaNum {
-		return nil, nil, proto.ErrNoMetaNodeToCreateMetaPartition
+		return nil, nil, errors.ErrNoMetaNodeToCreateMetaPartition
 	}
 	return
 }
@@ -1175,7 +1175,7 @@ func (c *Cluster) setMetaNodeThreshold(threshold float32) (err error) {
 	if err = c.syncPutCluster(); err != nil {
 		log.LogErrorf("action[setMetaNodeThreshold] err[%v]", err)
 		c.cfg.MetaNodeThreshold = oldThreshold
-		err = proto.ErrPersistenceByRaft
+		err = errors.ErrPersistenceByRaft
 		return
 	}
 	return
@@ -1187,7 +1187,7 @@ func (c *Cluster) setDisableAutoAllocate(disableAutoAllocate bool) (err error) {
 	if err = c.syncPutCluster(); err != nil {
 		log.LogErrorf("action[setDisableAutoAllocate] err[%v]", err)
 		c.DisableAutoAllocate = oldFlag
-		err = proto.ErrPersistenceByRaft
+		err = errors.ErrPersistenceByRaft
 		return
 	}
 	return

@@ -17,6 +17,7 @@ package master
 import (
 	"fmt"
 	"github.com/chubaofs/chubaofs/proto"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"sort"
 )
 
@@ -91,7 +92,7 @@ func (ns *nodeSet) getAvailMetaNodeHosts(excludeHosts []string, replicaNum int) 
 	nodes, count := ns.getAllCarryNodes(maxTotal, excludeHosts)
 	if len(nodes) < replicaNum {
 		err = fmt.Errorf(getAvailMetaNodeHostsErr+" err:%v ,ActiveNodeCount:%v  MatchNodeCount:%v  ",
-			proto.ErrNoMetaNodeToWrite, ns.metaNodeLen, len(nodes))
+			errors.ErrNoMetaNodeToWrite, ns.metaNodeLen, len(nodes))
 		return
 	}
 

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/raftstore"
 	"github.com/chubaofs/chubaofs/util"
 	"github.com/chubaofs/chubaofs/util/config"
@@ -89,10 +88,10 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 
 	peerAddrs := cfg.GetString(cfgPeers)
 	if m.ip == "" || m.port == "" || m.walDir == "" || m.storeDir == "" || m.clusterName == "" || peerAddrs == "" {
-		return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, "one of (ip,port,walDir,storeDir,clusterName) is null")
+		return fmt.Errorf("%v,err:%v", errors.ErrInvalidCfg, "one of (ip,port,walDir,storeDir,clusterName) is null")
 	}
 	if m.id, err = strconv.ParseUint(cfg.GetString(ID), 10, 64); err != nil {
-		return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
+		return fmt.Errorf("%v,err:%v", errors.ErrInvalidCfg, err.Error())
 	}
 	if err = m.config.parsePeers(peerAddrs); err != nil {
 		return
@@ -101,7 +100,7 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	retainLogs := cfg.GetString(CfgRetainLogs)
 	if retainLogs != "" {
 		if m.retainLogs, err = strconv.ParseUint(retainLogs, 10, 64); err != nil {
-			return fmt.Errorf("%v,err:%v", proto.ErrInvalidCfg, err.Error())
+			return fmt.Errorf("%v,err:%v", errors.ErrInvalidCfg, err.Error())
 		}
 	}
 	if m.retainLogs <= 0 {
@@ -179,12 +178,12 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 
 	AuthSecretKey := cfg.GetString(AuthSecretKey)
 	if m.cluster.AuthSecretKey, err = cryptoutil.Base64Decode(AuthSecretKey); err != nil {
-		return fmt.Errorf("action[Start] failed %v,err: auth service Key invalid=%s", proto.ErrInvalidCfg, AuthSecretKey)
+		return fmt.Errorf("action[Start] failed %v,err: auth service Key invalid=%s", errors.ErrInvalidCfg, AuthSecretKey)
 	}
 
 	AuthRootKey := cfg.GetString(AuthRootKey)
 	if m.cluster.AuthRootKey, err = cryptoutil.Base64Decode(AuthRootKey); err != nil {
-		return fmt.Errorf("action[Start] failed %v,err: auth root Key invalid=%s", proto.ErrInvalidCfg, AuthRootKey)
+		return fmt.Errorf("action[Start] failed %v,err: auth root Key invalid=%s", errors.ErrInvalidCfg, AuthRootKey)
 	}
 
 	if cfg.GetBool(EnableHTTPS) == true {

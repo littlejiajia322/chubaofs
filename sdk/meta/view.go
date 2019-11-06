@@ -128,13 +128,13 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 	view, err := mw.fetchVolumeView()
 	if err != nil {
 		switch err {
-		case proto.ErrExpiredTicket:
+		case errors.ErrExpiredTicket:
 			if e := mw.updateTicket(); e != nil {
 				log.LogFlush()
 				daemonize.SignalOutcome(err)
 				os.Exit(1)
 			}
-		case proto.ErrInvalidTicket:
+		case errors.ErrInvalidTicket:
 			log.LogFlush()
 			daemonize.SignalOutcome(err)
 			os.Exit(1)

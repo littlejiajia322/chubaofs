@@ -90,7 +90,7 @@ func (vol *Vol) metaPartition(partitionID uint64) (mp *MetaPartition, err error)
 	defer vol.mpsLock.RUnlock()
 	mp, ok := vol.MetaPartitions[partitionID]
 	if !ok {
-		err = proto.ErrMetaPartitionNotExists
+		err = errors.ErrMetaPartitionNotExists
 	}
 	return
 }

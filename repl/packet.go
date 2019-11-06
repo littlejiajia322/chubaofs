@@ -74,7 +74,7 @@ func (p *FollowerPacket) identificationErrorResultCode(errLog string, errMsg str
 	} else if strings.Contains(errMsg, storage.ParameterMismatchError.Error()) ||
 		strings.Contains(errMsg, ErrorUnknownOp.Error()) {
 		p.ResultCode = proto.OpArgMismatchErr
-	} else if strings.Contains(errMsg, proto.ErrDataPartitionNotExists.Error()) {
+	} else if strings.Contains(errMsg, errors.ErrDataPartitionNotExists.Error()) {
 		p.ResultCode = proto.OpTryOtherAddr
 	} else if strings.Contains(errMsg, storage.ExtentNotFoundError.Error()) ||
 		strings.Contains(errMsg, storage.ExtentHasBeenDeletedError.Error()) {
@@ -282,7 +282,7 @@ func (p *Packet) identificationErrorResultCode(errLog string, errMsg string) {
 	} else if strings.Contains(errMsg, storage.ParameterMismatchError.Error()) ||
 		strings.Contains(errMsg, ErrorUnknownOp.Error()) {
 		p.ResultCode = proto.OpArgMismatchErr
-	} else if strings.Contains(errMsg, proto.ErrDataPartitionNotExists.Error()) {
+	} else if strings.Contains(errMsg, errors.ErrDataPartitionNotExists.Error()) {
 		p.ResultCode = proto.OpTryOtherAddr
 	} else if strings.Contains(errMsg, storage.ExtentNotFoundError.Error()) ||
 		strings.Contains(errMsg, storage.ExtentHasBeenDeletedError.Error()) {

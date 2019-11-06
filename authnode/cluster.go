@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/raftstore"
 	"github.com/chubaofs/chubaofs/util/caps"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
@@ -103,7 +102,7 @@ func (c *Cluster) getKey(id string) (u *keystore.KeyInfo, err error) {
 	defer c.ksMutex.RUnlock()
 	u, ok := (*c.keystore)[id]
 	if !ok {
-		err = proto.ErrKeyNotExists
+		err = errors.ErrKeyNotExists
 	}
 	return
 }
@@ -120,7 +119,7 @@ func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keyst
 	c.opKeyMutex.Lock()
 	defer c.opKeyMutex.Unlock()
 	if _, err = c.getKey(id); err == nil {
-		err = proto.ErrDuplicateKey
+		err = errors.ErrDuplicateKey
 		goto errHandler
 	}
 	keyInfo.Ts = time.Now().Unix()
@@ -143,7 +142,7 @@ func (c *Cluster) DeleteKey(id string) (res *keystore.KeyInfo, err error) {
 	c.opKeyMutex.Lock()
 	defer c.opKeyMutex.Unlock()
 	if res, err = c.getKey(id); err != nil {
-		err = proto.ErrKeyNotExists
+		err = errors.ErrKeyNotExists
 		goto errHandler
 	}
 	if err = c.syncDeleteKey(res); err != nil {
@@ -161,7 +160,7 @@ errHandler:
 // GetKey get a key from the keystore
 func (c *Cluster) GetKey(id string) (res *keystore.KeyInfo, err error) {
 	if res, err = c.getKey(id); err != nil {
-		err = proto.ErrKeyNotExists
+		err = errors.ErrKeyNotExists
 		goto errHandler
 	}
 	return
@@ -182,7 +181,7 @@ func (c *Cluster) AddCaps(id string, keyInfo *keystore.KeyInfo) (res *keystore.K
 	c.opKeyMutex.Lock()
 	defer c.opKeyMutex.Unlock()
 	if res, err = c.getKey(id); err != nil {
-		err = proto.ErrKeyNotExists
+		err = errors.ErrKeyNotExists
 		goto errHandler
 	}
 
@@ -221,7 +220,7 @@ func (c *Cluster) DeleteCaps(id string, keyInfo *keystore.KeyInfo) (res *keystor
 	c.opKeyMutex.Lock()
 	defer c.opKeyMutex.Unlock()
 	if res, err = c.getKey(id); err != nil {
-		err = proto.ErrKeyNotExists
+		err = errors.ErrKeyNotExists
 		goto errHandler
 	}
 

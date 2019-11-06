@@ -157,7 +157,7 @@ func (mp *MetaPartition) addUpdateMetaReplicaTask(c *Cluster) (err error) {
 	t := mp.createTaskToUpdateMetaReplica(c.Name, mp.PartitionID, mp.End)
 	//if no leader,don't update end
 	if t == nil {
-		err = proto.ErrNoLeader
+		err = errors.ErrNoLeader
 		return
 	}
 	tasks = append(tasks, t)
@@ -253,7 +253,7 @@ func (mp *MetaPartition) checkStatus(writeLog bool, replicaNum int, maxPartition
 	}
 	if writeLog && len(liveReplicas) != int(mp.ReplicaNum) {
 		log.LogInfof("action[checkMPStatus],id:%v,status:%v,replicaNum:%v,replicas:%v,liveReplicas:%v persistenceHosts:%v",
-			mp.PartitionID, mp.Status, mp.ReplicaNum,mp.Replicas, len(liveReplicas), mp.Hosts)
+			mp.PartitionID, mp.Status, mp.ReplicaNum, mp.Replicas, len(liveReplicas), mp.Hosts)
 	}
 }
 
@@ -263,7 +263,7 @@ func (mp *MetaPartition) getMetaReplicaLeader() (mr *MetaReplica, err error) {
 			return
 		}
 	}
-	err = proto.ErrNoLeader
+	err = errors.ErrNoLeader
 	return
 }
 
@@ -283,7 +283,7 @@ func (mp *MetaPartition) removeIllegalReplica() (excessAddr string, t *proto.Adm
 	for _, mr := range mp.Replicas {
 		if !contains(mp.Hosts, mr.Addr) {
 			t = mr.createTaskToDeleteReplica(mp.PartitionID)
-			err = proto.ErrIllegalMetaReplica
+			err = errors.ErrIllegalMetaReplica
 			break
 		}
 	}
@@ -326,7 +326,7 @@ func (mp *MetaPartition) updateMetaPartition(mgr *proto.MetaPartitionReport, met
 func (mp *MetaPartition) canBeOffline(nodeAddr string, replicaNum int) (err error) {
 	liveReplicas := mp.getLiveReplicas()
 	if len(liveReplicas) < int(mp.ReplicaNum/2+1) {
-		err = proto.ErrNoEnoughReplica
+		err = errors.ErrNoEnoughReplica
 		return
 	}
 	liveAddrs := mp.getLiveReplicasAddr(liveReplicas)

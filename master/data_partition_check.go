@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/log"
 	"time"
 )
@@ -200,7 +201,7 @@ func (partition *DataPartition) deleteIllegalReplica() (excessAddr string, task 
 			excessAddr = replica.Addr
 			log.LogError(fmt.Sprintf("action[removeIllegalReplica],partitionID:%v,has excess replication:%v",
 				partition.PartitionID, excessAddr))
-			err = proto.ErrIllegalDataReplica
+			err = errors.ErrIllegalDataReplica
 			task = partition.createTaskToDeleteDataPartition(excessAddr)
 			break
 		}
@@ -222,7 +223,7 @@ func (partition *DataPartition) missingReplicaAddress(dataPartitionSize uint64) 
 		if _, ok := partition.hasReplica(addr); !ok {
 			log.LogError(fmt.Sprintf("action[missingReplicaAddress],partitionID:%v lack replication:%v",
 				partition.PartitionID, addr))
-			err = proto.ErrMissingReplica
+			err = errors.ErrMissingReplica
 			addr = addr
 			break
 		}

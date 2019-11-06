@@ -28,14 +28,14 @@ import (
 
 // DataPartition represents the structure of storing the file contents.
 type DataPartition struct {
-	PartitionID             uint64
-	LastLoadedTime          int64
-	ReplicaNum              uint8
-	Status                  int8
-	isRecover               bool
-	Replicas                []*DataReplica
-	Hosts                   []string // host addresses
-	Peers                   []proto.Peer
+	PartitionID    uint64
+	LastLoadedTime int64
+	ReplicaNum     uint8
+	Status         int8
+	isRecover      bool
+	Replicas       []*DataReplica
+	Hosts          []string // host addresses
+	Peers          []proto.Peer
 	sync.RWMutex
 	total                   uint64
 	used                    uint64
@@ -93,7 +93,7 @@ func (partition *DataPartition) createTaskToDeleteDataPartition(addr string) (ta
 func (partition *DataPartition) createTaskToDecommissionDataPartition(removePeer proto.Peer, addPeer proto.Peer) (task *proto.AdminTask, err error) {
 	leaderAddr := partition.getLeaderAddr()
 	if leaderAddr == "" {
-		err = proto.ErrNoLeader
+		err = errors.ErrNoLeader
 		return
 	}
 	task = proto.NewAdminTask(proto.OpDecommissionDataPartition, leaderAddr, newOfflineDataPartitionRequest(partition.PartitionID, removePeer, addPeer))
@@ -110,8 +110,8 @@ func (partition *DataPartition) hasMissingOneReplica(replicaNum int) (err error)
 	hostNum := len(partition.Replicas)
 	if hostNum <= replicaNum-1 {
 		log.LogError(fmt.Sprintf("action[%v],partitionID:%v,err:%v",
-			"hasMissingOneReplica", partition.PartitionID, proto.ErrHasOneMissingReplica))
-		err = proto.ErrHasOneMissingReplica
+			"hasMissingOneReplica", partition.PartitionID, errors.ErrHasOneMissingReplica))
+		err = errors.ErrHasOneMissingReplica
 	}
 	return
 }
@@ -130,7 +130,7 @@ func (partition *DataPartition) canBeOffLine(offlineAddr string) (err error) {
 	}
 
 	if len(otherLiveReplicas) < int(partition.ReplicaNum/2) {
-		msg = fmt.Sprintf(msg+" err:%v  liveReplicas:%v ", proto.ErrCannotBeOffLine, len(liveReplicas))
+		msg = fmt.Sprintf(msg+" err:%v  liveReplicas:%v ", errors.ErrCannotBeOffLine, len(liveReplicas))
 		log.LogError(msg)
 		err = fmt.Errorf(msg)
 	}

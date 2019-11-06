@@ -8,7 +8,6 @@ import (
 	//"strings"
 	"time"
 
-	//"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
@@ -34,33 +33,33 @@ func (m *Server) getTicket(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if key, err = m.getSecretKey(jobj.ClientID); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if ts, err = proto.ParseVerifier(jobj.Verifier, key); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if err = validateGetTicketReqFormat(&jobj); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	// TODO check whether jobj.ip == the IP from HTTP request
 	if message, err = m.genGetTicketAuthResp(&jobj, ts, r); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
@@ -79,12 +78,12 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "Unmarshal AuthRaftNodeReq failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "Unmarshal AuthRaftNodeReq failed: " + err.Error()})
 		return
 	}
 
@@ -92,17 +91,17 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	raftNodeInfo := jobj.RaftNodeInfo
 
 	if err = proto.VerifyAPIAccessReqIDs(&apiReq); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
 		return
 	}
 
 	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthSecretKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
 		return
 	}
 
 	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, apiReq.Type, proto.APIAccess); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}
 
@@ -115,14 +114,14 @@ func (m *Server) raftNodeOp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthKeyStoreError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthKeyStoreError, Msg: err.Error()})
 		return
 	}
 
 	msg := fmt.Sprintf("add raft node id :%v, addr:%v successfully \n", raftNodeInfo.ID, raftNodeInfo.Addr)
 
 	if message, err = genAuthRaftNodeOpResp(&apiReq, ts, ticket.SessionKey.Key, msg); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthRaftNodeGenRespError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthRaftNodeGenRespError, Msg: err.Error()})
 		return
 	}
 
@@ -182,12 +181,12 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if plaintext, err = m.extractClientReqInfo(r); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "Unmarshal AuthAPIAccessReq failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "Unmarshal AuthAPIAccessReq failed: " + err.Error()})
 		return
 	}
 
@@ -195,18 +194,18 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	keyInfo := jobj.KeyInfo
 
 	if err = keyInfo.IsValidID(); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
 
 	switch apiReq.Type {
 	case proto.MsgAuthCreateKeyReq:
 		if keyInfo.ID == proto.AuthServiceID {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "AuthServiceID is reserved"})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "AuthServiceID is reserved"})
 			return
 		}
 		if err = keyInfo.IsValidKeyInfo(); err != nil {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 			return
 		}
 	case proto.MsgAuthDeleteKeyReq:
@@ -215,26 +214,26 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 		fallthrough
 	case proto.MsgAuthDeleteCapsReq:
 		if err = keyInfo.IsValidCaps(); err != nil {
-			sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: err.Error()})
+			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 			return
 		}
 	default:
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: fmt.Errorf("invalid request messge type %x", int32(apiReq.Type)).Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: fmt.Errorf("invalid request messge type %x", int32(apiReq.Type)).Error()})
 		return
 	}
 
 	if err = proto.VerifyAPIAccessReqIDs(&apiReq); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "VerifyAPIAccessReqIDs failed: " + err.Error()})
 		return
 	}
 
 	if ticket, ts, err = proto.ExtractAPIAccessTicket(&apiReq, m.cluster.AuthSecretKey); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "ExtractAPIAccessTicket failed: " + err.Error()})
 		return
 	}
 
 	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, apiReq.Type, proto.APIAccess); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "CheckAPIAccessCaps failed: " + err.Error()})
 		return
 	}
 
@@ -252,12 +251,12 @@ func (m *Server) apiAccessEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthKeyStoreError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthKeyStoreError, Msg: err.Error()})
 		return
 	}
 
 	if message, err = genAuthAPIAccessResp(&apiReq, newKeyInfo, ts, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPAuthReply{Code: proto.ErrCodeAuthAPIAccessGenRespError, Msg: err.Error()})
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthAPIAccessGenRespError, Msg: err.Error()})
 		return
 	}
 
@@ -452,7 +451,7 @@ func genAuthAPIAccessResp(req *proto.APIAccessReq, keyInfo *keystore.KeyInfo, ts
 }
 
 func newSuccessHTTPAuthReply(data interface{}) *proto.HTTPAuthReply {
-	return &proto.HTTPAuthReply{Code: proto.ErrCodeSuccess, Msg: proto.ErrSuc.Error(), Data: data}
+	return &proto.HTTPAuthReply{Code: errors.ErrCodeSuccess, Msg: errors.ErrSuc.Error(), Data: data}
 }
 
 func sendOkReply(w http.ResponseWriter, r *http.Request, HTTPAuthReply *proto.HTTPAuthReply) (err error) {

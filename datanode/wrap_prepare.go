@@ -20,6 +20,7 @@ import (
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/repl"
 	"github.com/chubaofs/chubaofs/storage"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"hash/crc32"
 )
 
@@ -75,7 +76,7 @@ func (s *DataNode) checkCrc(p *repl.Packet) (err error) {
 func (s *DataNode) checkPartition(p *repl.Packet) (err error) {
 	dp := s.space.Partition(p.PartitionID)
 	if dp == nil {
-		err = proto.ErrDataPartitionNotExists
+		err = errors.ErrDataPartitionNotExists
 		return
 	}
 	p.Object = dp

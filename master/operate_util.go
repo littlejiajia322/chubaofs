@@ -116,8 +116,8 @@ func contains(arr []string, element string) (ok bool) {
 
 func reshuffleHosts(oldHosts []string) (newHosts []string, err error) {
 	if oldHosts == nil || len(oldHosts) == 0 {
-		log.LogError(fmt.Sprintf("action[reshuffleHosts],err:%v", proto.ErrReshuffleArray))
-		err = proto.ErrReshuffleArray
+		log.LogError(fmt.Sprintf("action[reshuffleHosts],err:%v", errors.ErrReshuffleArray))
+		err = errors.ErrReshuffleArray
 		return
 	}
 
