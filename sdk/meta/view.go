@@ -21,8 +21,11 @@ import (
 	"encoding/json"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
+	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/log"
+	"github.com/jacobsa/daemonize"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -54,7 +57,7 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 	}
 	params["authKey"] = authKey
 	mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
-	tokenMessage, err := genMasterToken(mw.accessToken, mw.sessionKey)
+	tokenMessage, ts, err := genMasterToken(mw.accessToken, mw.sessionKey)
 	if err != nil {
 		log.LogWarnf("fetchVolumeView generate token failed: err(%v)", err)
 		return nil, err
@@ -65,10 +68,18 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		log.LogWarnf("fetchVolumeView request: err(%v)", err)
 		return nil, err
 	}
-
-	view := new(VolumeView)
-	if err = json.Unmarshal(body, view); err != nil {
+	getVolResp := new(proto.GetVolResponse)
+	if err = json.Unmarshal(body, getVolResp); err != nil {
 		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
+		return nil, err
+	}
+	if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
+		log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, string(getVolResp.CheckMess))
+		return nil, err
+	}
+	view := new(VolumeView)
+	if err = json.Unmarshal(getVolResp.VolViewCache, view); err != nil {
+		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(getVolResp.VolViewCache))
 		return nil, err
 	}
 	return view, nil
@@ -116,7 +127,20 @@ func (mw *MetaWrapper) updateVolStatInfo() error {
 func (mw *MetaWrapper) updateMetaPartitions() error {
 	view, err := mw.fetchVolumeView()
 	if err != nil {
-		return err
+		switch err {
+		case proto.ErrExpiredTicket:
+			if e := mw.updateTicket(); e != nil {
+				log.LogFlush()
+				daemonize.SignalOutcome(err)
+				os.Exit(1)
+			}
+		case proto.ErrInvalidTicket:
+			log.LogFlush()
+			daemonize.SignalOutcome(err)
+			os.Exit(1)
+		default:
+			return err
+		}
 	}
 
 	rwPartitions := make([]*MetaPartition, 0)
@@ -162,7 +186,7 @@ func calculateAuthKey(key string) (authKey string, err error) {
 	return strings.ToLower(hex.EncodeToString(cipherStr)), nil
 }
 
-func genMasterToken(req proto.APIAccessReq, key string) (message string, err error) {
+func genMasterToken(req proto.APIAccessReq, key string) (message string, ts int64, err error) {
 	var (
 		sessionKey []byte
 		data       []byte
@@ -172,7 +196,7 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, err err
 		return
 	}
 
-	if req.Verifier, _, err = cryptoutil.GenVerifier(sessionKey); err != nil {
+	if req.Verifier, ts, err = cryptoutil.GenVerifier(sessionKey); err != nil {
 		return
 	}
 
@@ -183,4 +207,37 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, err err
 	message = base64.StdEncoding.EncodeToString(data)
 
 	return
+}
+
+func (mw *MetaWrapper) updateTicket() error {
+	ticket, err := getTicketFromAuthnode(mw.volname, mw.ticketMess)
+	if err != nil {
+		return errors.Trace(err, "Update ticket from authnode failed!")
+	}
+	mw.accessToken.Ticket = ticket.Ticket
+	mw.sessionKey = ticket.SessionKey
+	return nil
+}
+
+func (mw *MetaWrapper) verifyResponse(checkMess string, serviceID string, ts int64) (err error) {
+	var (
+		sessionKey []byte
+		plaintext  []byte
+		resp       proto.APIAccessResp
+	)
+
+	if sessionKey, err = cryptoutil.Base64Decode(mw.sessionKey); err != nil {
+		return
+	}
+
+	if plaintext, err = cryptoutil.DecodeMessage(checkMess, sessionKey); err != nil {
+		return
+	}
+
+	if err = json.Unmarshal(plaintext, &resp); err != nil {
+		return
+	}
+
+	return proto.VerifyAPIRespComm(&resp, mw.accessToken.Type, mw.volname, serviceID, ts)
+
 }

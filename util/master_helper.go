@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/log"
 	"io/ioutil"
 	"net/http"
@@ -129,7 +130,11 @@ func (helper *masterHelper) request(method, path string, param map[string]string
 			}
 			// o represent proto.ErrCodeSuccess
 			if body.Code != 0 {
-				return nil, fmt.Errorf("request error, code[%d], msg[%s]", body.Code, body.Msg)
+				if body.Code == proto.ErrCodeExpiredTicket {
+					return nil, proto.ErrExpiredTicket
+				} else {
+					return nil, fmt.Errorf("request error, code[%d], msg[%s]", body.Code, body.Msg)
+				}
 			}
 			return []byte(body.Data), nil
 		default:

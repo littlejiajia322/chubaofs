@@ -62,6 +62,8 @@ var (
 	ErrKeyNotExists                    = errors.New("key not exists")
 	ErrDuplicateKey                    = errors.New("duplicate key")
 	ErrInvalidTicket                   = errors.New("invalid ticket")
+	ErrExpiredTicket                   = errors.New("expired ticket")
+	ErrMasterAPIGenRespError           = errors.New("master API generate response error")
 )
 
 // http response error code and error message definitions
@@ -104,6 +106,8 @@ const (
 	ErrCodeAuthRaftNodeGenRespError
 	ErrCodeAuthReqRedirectError
 	ErrCodeInvalidTicket
+	ErrCodeExpiredTicket
+	ErrCodeMasterAPIGenRespError
 )
 
 // Err2CodeMap error map to code
@@ -144,4 +148,6 @@ var Err2CodeMap = map[error]int32{
 	ErrAuthKeyStoreError:               ErrCodeAuthKeyStoreError,
 	ErrAuthAPIAccessGenRespError:       ErrCodeAuthAPIAccessGenRespError,
 	ErrInvalidTicket:                   ErrCodeInvalidTicket,
+	ErrExpiredTicket:                   ErrCodeExpiredTicket,
+	ErrMasterAPIGenRespError:           ErrCodeMasterAPIGenRespError,
 }

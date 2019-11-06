@@ -1154,12 +1154,20 @@ func (m *Server) getDataPartitions(w http.ResponseWriter, r *http.Request) {
 
 func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 	var (
-		err     error
-		name    string
-		authKey string
-		vol     *Vol
+		err          error
+		name         string
+		authKey      string
+		vol          *Vol
+		checkMessage string
+		jobj         proto.APIAccessReq
+		ticket       cryptoutil.Ticket
+		ts           int64
 	)
-	if err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+	if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+		if err == proto.ErrExpiredTicket {
+			sendErrReply(w, r, newErrHTTPReply(err))
+			return
+		}
 		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeInvalidTicket, Msg: err.Error()})
 		return
 	}
@@ -1175,7 +1183,16 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, newErrHTTPReply(proto.ErrVolAuthKeyNotMatch))
 		return
 	}
-	send(w, r, vol.getViewCache())
+	if checkMessage, err = genCheckMessage(&jobj, ts, ticket.SessionKey.Key); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: proto.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
+		return
+	}
+	resp := proto.GetVolResponse{
+		VolViewCache: vol.getViewCache(),
+		CheckMess:    checkMessage,
+	}
+	sendOkReply(w, r, newSuccessHTTPReply(resp))
+	//send(w, r, vol.getViewCache())
 }
 
 // Obtain the volume information such as total capacity and used space, etc.
@@ -1286,10 +1303,9 @@ func extractName(r *http.Request) (name string, err error) {
 	return
 }
 
-func parseAndCheckTicket(r *http.Request, key []byte) (err error) {
+func parseAndCheckTicket(r *http.Request, key []byte) (jobj proto.APIAccessReq, ticket cryptoutil.Ticket, ts int64, err error) {
 	var (
 		plaintext []byte
-		jobj      proto.APIAccessReq
 	)
 
 	if err = r.ParseForm(); err != nil {
@@ -1303,8 +1319,12 @@ func parseAndCheckTicket(r *http.Request, key []byte) (err error) {
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
 		return
 	}
-
-	return extractTicketMess(jobj, key)
+	//TODO volname的验证，本来有吗？合规吗？
+	if err = proto.VerifyAPIAccessReqIDs(&jobj); err != nil {
+		return
+	}
+	ticket, ts, err = extractTicketMess(&jobj, key)
+	return
 }
 
 func extractClientReqInfo(r *http.Request) (plaintext []byte, err error) {
@@ -1327,19 +1347,16 @@ func extractClientReqInfo(r *http.Request) (plaintext []byte, err error) {
 	return
 }
 
-func extractTicketMess(req proto.APIAccessReq, key []byte) (err error) {
-	var (
-		ticket cryptoutil.Ticket
-	)
+func extractTicketMess(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
 	if ticket, err = proto.ExtractTicket(req.Ticket, key); err != nil {
-		err = fmt.Errorf("extractTicket failed: %s from ticket %s", err.Error(), req.Ticket)
+		err = fmt.Errorf("extractTicket failed: %s", err.Error())
 		return
 	}
 	if time.Now().Unix() >= ticket.Exp {
-		err = fmt.Errorf("ticket expired")
+		err = proto.ErrExpiredTicket
 		return
 	}
-	if _, err = proto.ParseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
+	if ts, err = proto.ParseVerifier(req.Verifier, ticket.SessionKey.Key); err != nil {
 		err = fmt.Errorf("parseVerifier failed: %s", err.Error())
 		return
 	}
@@ -1347,5 +1364,29 @@ func extractTicketMess(req proto.APIAccessReq, key []byte) (err error) {
 		err = fmt.Errorf("CheckAPIAccessCaps failed: %s", err.Error())
 		return
 	}
+	return
+}
+
+func genCheckMessage(req *proto.APIAccessReq, ts int64, key []byte) (message string, err error) {
+	var (
+		jresp []byte
+		resp  proto.APIAccessResp
+	)
+
+	resp.Type = req.Type + 1
+	resp.ClientID = req.ClientID
+	resp.ServiceID = req.ServiceID
+	resp.Verifier = ts + 1 // increase ts by one for client verify server
+
+	if jresp, err = json.Marshal(resp); err != nil {
+		err = fmt.Errorf("json marshal for response failed %s", err.Error())
+		return
+	}
+
+	if message, err = cryptoutil.EncodeMessage(jresp, key); err != nil {
+		err = fmt.Errorf("encdoe message for response failed %s", err.Error())
+		return
+	}
+
 	return
 }

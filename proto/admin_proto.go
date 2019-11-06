@@ -376,12 +376,8 @@ type SimpleVolView struct {
 	FollowerRead bool
 }
 
-// TODO 需要吗？AuthCheckRequest defines the request of checking the authorization to master API.
-type AuthCheckRequest struct {
-	Type      string `json:"type"`
-	ClientID  string `json:"client_id"`
-	ServiceID string `json:"service_id"`
-	Verifier  string `json:"verifier"`
-	Ticket    string `json:"ticket"`
-	Caps      []byte `json:"caps"`
+// GetVolResponse defines the response for getting meta partition
+type GetVolResponse struct {
+	VolViewCache []byte `json:"vol_view_cache"`
+	CheckMess    string `json:"check_message"`
 }

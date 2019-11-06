@@ -82,6 +82,7 @@ type MetaWrapper struct {
 	Ticket      Ticket
 	accessToken proto.APIAccessReq
 	sessionKey  string
+	ticketMess  auth.TicketMess
 }
 
 //the ticket from authnode
@@ -102,6 +103,7 @@ func NewMetaWrapper(volname, owner, masterHosts string, ticketMess auth.TicketMe
 	mw.accessToken.ServiceID = proto.MasterServiceID
 	mw.accessToken.Ticket = ticket.Ticket
 	mw.sessionKey = ticket.SessionKey
+	mw.ticketMess = ticketMess
 	mw.volname = volname
 	mw.owner = owner
 	master := strings.Split(masterHosts, HostsSeparator)
