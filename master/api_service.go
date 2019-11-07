@@ -1187,12 +1187,11 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
 		return
 	}
-	resp := proto.GetVolResponse{
+	resp := &proto.GetVolResponse{
 		VolViewCache: vol.getViewCache(),
 		CheckMess:    checkMessage,
 	}
 	sendOkReply(w, r, newSuccessHTTPReply(resp))
-	//send(w, r, vol.getViewCache())
 }
 
 // Obtain the volume information such as total capacity and used space, etc.

@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
@@ -74,12 +75,24 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		return nil, err
 	}
 	if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
-		log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, string(getVolResp.CheckMess))
+		log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, getVolResp.CheckMess)
 		return nil, err
 	}
+	var viewBody = &struct {
+		Code int32  `json:"code"`
+		Msg  string `json:"msg"`
+		Data json.RawMessage
+	}{}
+	if err = json.Unmarshal(getVolResp.VolViewCache, viewBody); err != nil {
+		log.LogWarnf("VolViewCache unmarshal: err(%v) body(%v)", err, viewBody)
+		return nil, err
+	}
+	if viewBody.Code != 0 {
+		return nil, fmt.Errorf("request error, code[%d], msg[%s]", viewBody.Code, viewBody.Msg)
+	}
 	view := new(VolumeView)
-	if err = json.Unmarshal(getVolResp.VolViewCache, view); err != nil {
-		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(getVolResp.VolViewCache))
+	if err = json.Unmarshal([]byte(viewBody.Data), view); err != nil {
+		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string([]byte(viewBody.Data)))
 		return nil, err
 	}
 	return view, nil
@@ -134,6 +147,7 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 				daemonize.SignalOutcome(err)
 				os.Exit(1)
 			}
+			return err
 		case errors.ErrInvalidTicket:
 			log.LogFlush()
 			daemonize.SignalOutcome(err)
@@ -237,7 +251,6 @@ func (mw *MetaWrapper) verifyResponse(checkMess string, serviceID string, ts int
 	if err = json.Unmarshal(plaintext, &resp); err != nil {
 		return
 	}
-
 	return proto.VerifyAPIRespComm(&resp, mw.accessToken.Type, mw.volname, serviceID, ts)
 
 }
