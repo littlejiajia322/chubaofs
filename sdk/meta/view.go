@@ -95,6 +95,7 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string([]byte(viewBody.Data)))
 		return nil, err
 	}
+	log.LogInfof("fetchVolumeView ok: %v", view)
 	return view, nil
 }
 
@@ -139,6 +140,7 @@ func (mw *MetaWrapper) updateVolStatInfo() error {
 
 func (mw *MetaWrapper) updateMetaPartitions() error {
 	view, err := mw.fetchVolumeView()
+	log.LogInfof("error before: %v", err.Error())
 	if err != nil {
 		switch err {
 		case errors.ErrExpiredTicket:
@@ -147,6 +149,7 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 				daemonize.SignalOutcome(err)
 				os.Exit(1)
 			}
+			log.LogInfof("updateTicket: ok!")
 			return err
 		case errors.ErrInvalidTicket:
 			log.LogFlush()
@@ -156,6 +159,7 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 			return err
 		}
 	}
+	log.LogInfof("error after: %v", err.Error())
 
 	rwPartitions := make([]*MetaPartition, 0)
 	for _, mp := range view.MetaPartitions {
@@ -217,7 +221,7 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, ts int6
 	if data, err = json.Marshal(req); err != nil {
 		return
 	}
-
+	log.LogInfof("Ticket: %v", req.Ticket)
 	message = base64.StdEncoding.EncodeToString(data)
 
 	return
