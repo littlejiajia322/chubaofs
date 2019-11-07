@@ -140,8 +140,8 @@ func (mw *MetaWrapper) updateVolStatInfo() error {
 
 func (mw *MetaWrapper) updateMetaPartitions() error {
 	view, err := mw.fetchVolumeView()
-	log.LogInfof("error before: %v", err.Error())
 	if err != nil {
+		log.LogInfof("error: %v", err.Error())
 		switch err {
 		case errors.ErrExpiredTicket:
 			if e := mw.updateTicket(); e != nil {
@@ -159,7 +159,6 @@ func (mw *MetaWrapper) updateMetaPartitions() error {
 			return err
 		}
 	}
-	log.LogInfof("error after: %v", err.Error())
 
 	rwPartitions := make([]*MetaPartition, 0)
 	for _, mp := range view.MetaPartitions {
