@@ -928,6 +928,7 @@ func (c *Cluster) updateVol(name, authKey string, capacity uint64, replicaNum ui
 		oldDpReplicaNum uint8
 		oldCapacity     uint64
 		oldFollowerRead bool
+		oldNeedTicket   bool
 	)
 	if vol, err = c.getVol(name); err != nil {
 		log.LogErrorf("action[updateVol] err[%v]", err)
@@ -947,6 +948,7 @@ func (c *Cluster) updateVol(name, authKey string, capacity uint64, replicaNum ui
 	oldCapacity = vol.Capacity
 	oldDpReplicaNum = vol.dpReplicaNum
 	oldFollowerRead = vol.FollowerRead
+	oldNeedTicket = vol.needTicket
 	vol.Capacity = capacity
 	//only reduced replica num is supported
 	if replicaNum != 0 && replicaNum < vol.dpReplicaNum {
@@ -956,6 +958,7 @@ func (c *Cluster) updateVol(name, authKey string, capacity uint64, replicaNum ui
 		vol.Capacity = oldCapacity
 		vol.dpReplicaNum = oldDpReplicaNum
 		vol.FollowerRead = oldFollowerRead
+		vol.needTicket = oldNeedTicket
 		log.LogErrorf("action[updateVol] vol[%v] err[%v]", name, err)
 		err = errors.ErrPersistenceByRaft
 		goto errHandler
@@ -970,7 +973,7 @@ errHandler:
 
 // Create a new volume.
 // By default we create 3 meta partitions and 10 data partitions during initialization.
-func (c *Cluster) createVol(name, owner string, mpCount, size, capacity, dpReplicaNum int, followerRead bool) (vol *Vol, err error) {
+func (c *Cluster) createVol(name, owner string, mpCount, size, capacity, dpReplicaNum int, followerRead, needTicket bool) (vol *Vol, err error) {
 	var (
 		dataPartitionSize       uint64
 		readWriteDataPartitions int
@@ -980,7 +983,7 @@ func (c *Cluster) createVol(name, owner string, mpCount, size, capacity, dpRepli
 	} else {
 		dataPartitionSize = uint64(size) * util.GB
 	}
-	if vol, err = c.doCreateVol(name, owner, dataPartitionSize, uint64(capacity), dpReplicaNum, followerRead); err != nil {
+	if vol, err = c.doCreateVol(name, owner, dataPartitionSize, uint64(capacity), dpReplicaNum, followerRead, needTicket); err != nil {
 		goto errHandler
 	}
 	if err = vol.initMetaPartitions(c, mpCount); err != nil {
@@ -1008,7 +1011,7 @@ errHandler:
 	return
 }
 
-func (c *Cluster) doCreateVol(name, owner string, dpSize, capacity uint64, dpReplicaNum int, followerRead bool) (vol *Vol, err error) {
+func (c *Cluster) doCreateVol(name, owner string, dpSize, capacity uint64, dpReplicaNum int, followerRead, needTicket bool) (vol *Vol, err error) {
 	var id uint64
 	c.createVolMutex.Lock()
 	defer c.createVolMutex.Unlock()
@@ -1020,7 +1023,7 @@ func (c *Cluster) doCreateVol(name, owner string, dpSize, capacity uint64, dpRep
 	if err != nil {
 		goto errHandler
 	}
-	vol = newVol(id, name, owner, dpSize, capacity, uint8(dpReplicaNum), defaultReplicaNum, followerRead)
+	vol = newVol(id, name, owner, dpSize, capacity, uint8(dpReplicaNum), defaultReplicaNum, followerRead, needTicket)
 	if err = c.syncAddVol(vol); err != nil {
 		goto errHandler
 	}

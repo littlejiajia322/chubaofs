@@ -57,46 +57,61 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		return nil, err
 	}
 	params["authKey"] = authKey
-	mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
-	tokenMessage, ts, err := genMasterToken(mw.accessToken, mw.sessionKey)
-	if err != nil {
-		log.LogWarnf("fetchVolumeView generate token failed: err(%v)", err)
-		return nil, err
+	if mw.needTicket {
+		mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
+		tokenMessage, ts, err := genMasterToken(mw.accessToken, mw.sessionKey)
+		if err != nil {
+			log.LogWarnf("fetchVolumeView generate token failed: err(%v)", err)
+			return nil, err
+		}
+		params[proto.ClientMessage] = tokenMessage
+		body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
+		if err != nil {
+			log.LogWarnf("fetchVolumeView request: err(%v)", err)
+			return nil, err
+		}
+		getVolResp := new(proto.GetVolResponse)
+		if err = json.Unmarshal(body, getVolResp); err != nil {
+			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
+			return nil, err
+		}
+		if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
+			log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, getVolResp.CheckMess)
+			return nil, err
+		}
+		var viewBody = &struct {
+			Code int32  `json:"code"`
+			Msg  string `json:"msg"`
+			Data json.RawMessage
+		}{}
+		if err = json.Unmarshal(getVolResp.VolViewCache, viewBody); err != nil {
+			log.LogWarnf("VolViewCache unmarshal: err(%v) body(%v)", err, viewBody)
+			return nil, err
+		}
+		if viewBody.Code != 0 {
+			return nil, fmt.Errorf("request error, code[%d], msg[%s]", viewBody.Code, viewBody.Msg)
+		}
+		view := new(VolumeView)
+		if err = json.Unmarshal([]byte(viewBody.Data), view); err != nil {
+			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string([]byte(viewBody.Data)))
+			return nil, err
+		}
+		log.LogInfof("fetchVolumeView ok: %v", view)
+		return view, nil
+	} else {
+		body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
+		if err != nil {
+			log.LogWarnf("fetchVolumeView request: err(%v)", err)
+			return nil, err
+		}
+
+		view := new(VolumeView)
+		if err = json.Unmarshal(body, view); err != nil {
+			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
+			return nil, err
+		}
+		return view, nil
 	}
-	params[proto.ClientMessage] = tokenMessage
-	body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
-	if err != nil {
-		log.LogWarnf("fetchVolumeView request: err(%v)", err)
-		return nil, err
-	}
-	getVolResp := new(proto.GetVolResponse)
-	if err = json.Unmarshal(body, getVolResp); err != nil {
-		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
-		return nil, err
-	}
-	if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
-		log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, getVolResp.CheckMess)
-		return nil, err
-	}
-	var viewBody = &struct {
-		Code int32  `json:"code"`
-		Msg  string `json:"msg"`
-		Data json.RawMessage
-	}{}
-	if err = json.Unmarshal(getVolResp.VolViewCache, viewBody); err != nil {
-		log.LogWarnf("VolViewCache unmarshal: err(%v) body(%v)", err, viewBody)
-		return nil, err
-	}
-	if viewBody.Code != 0 {
-		return nil, fmt.Errorf("request error, code[%d], msg[%s]", viewBody.Code, viewBody.Msg)
-	}
-	view := new(VolumeView)
-	if err = json.Unmarshal([]byte(viewBody.Data), view); err != nil {
-		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string([]byte(viewBody.Data)))
-		return nil, err
-	}
-	log.LogInfof("fetchVolumeView ok: %v", view)
-	return view, nil
 }
 
 // fetch and update cluster info if successful
@@ -220,7 +235,6 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, ts int6
 	if data, err = json.Marshal(req); err != nil {
 		return
 	}
-	log.LogInfof("Ticket: %v", req.Ticket)
 	message = base64.StdEncoding.EncodeToString(data)
 
 	return

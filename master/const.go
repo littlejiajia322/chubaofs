@@ -33,6 +33,7 @@ const (
 	volAuthKey            = "authKey"
 	replicaNumKey         = "replicaNum"
 	followerReadKey       = "followerRead"
+	needTicketKey         = "needTicket"
 )
 
 const (

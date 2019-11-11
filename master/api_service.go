@@ -414,13 +414,14 @@ func (m *Server) createVol(w http.ResponseWriter, r *http.Request) {
 		capacity     int
 		vol          *Vol
 		followerRead bool
+		needTicket   bool
 	)
 
-	if name, owner, mpCount, size, capacity, dpReplicaNum, followerRead, err = parseRequestToCreateVol(r); err != nil {
+	if name, owner, mpCount, size, capacity, dpReplicaNum, followerRead, needTicket, err = parseRequestToCreateVol(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	if vol, err = m.cluster.createVol(name, owner, mpCount, size, capacity, dpReplicaNum, followerRead); err != nil {
+	if vol, err = m.cluster.createVol(name, owner, mpCount, size, capacity, dpReplicaNum, followerRead, needTicket); err != nil {
 		sendErrReply(w, r, newErrHTTPReply(err))
 		return
 	}
@@ -833,7 +834,7 @@ func parseRequestToUpdateVol(r *http.Request) (name, authKey string, capacity, r
 	return
 }
 
-func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size, capacity, dpReplicaNum int, followerRead bool, err error) {
+func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size, capacity, dpReplicaNum int, followerRead, needTicket bool, err error) {
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -876,6 +877,11 @@ func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size
 	if followerRead, err = extractFollowerRead(r); err != nil {
 		return
 	}
+
+	if needTicket, err = extractNeedTicket(r); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -1005,6 +1011,18 @@ func extractFollowerRead(r *http.Request) (followerRead bool, err error) {
 		return
 	}
 	if followerRead, err = strconv.ParseBool(value); err != nil {
+		return
+	}
+	return
+}
+
+func extractNeedTicket(r *http.Request) (needTicket bool, err error) {
+	var value string
+	if value = r.FormValue(needTicketKey); value == "" {
+		needTicket = true
+		return
+	}
+	if needTicket, err = strconv.ParseBool(value); err != nil {
 		return
 	}
 	return
@@ -1163,14 +1181,6 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		ticket       cryptoutil.Ticket
 		ts           int64
 	)
-	if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
-		if err == errors.ErrExpiredTicket {
-			sendErrReply(w, r, newErrHTTPReply(err))
-			return
-		}
-		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeInvalidTicket, Msg: err.Error()})
-		return
-	}
 	if name, authKey, err = parseRequestToGetVol(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
@@ -1183,15 +1193,32 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolAuthKeyNotMatch))
 		return
 	}
-	if checkMessage, err = genCheckMessage(&jobj, ts, ticket.SessionKey.Key); err != nil {
-		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
-		return
+	if vol.needTicket {
+		if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+			if err == errors.ErrExpiredTicket {
+				sendErrReply(w, r, newErrHTTPReply(err))
+				return
+			}
+			sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeInvalidTicket, Msg: err.Error()})
+			return
+		}
+		if checkMessage, err = genCheckMessage(&jobj, ts, ticket.SessionKey.Key); err != nil {
+			sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeMasterAPIGenRespError, Msg: err.Error()})
+			return
+		}
+		resp := &proto.GetVolResponse{
+			VolViewCache: vol.getViewCache(),
+			CheckMess:    checkMessage,
+		}
+		sendOkReply(w, r, newSuccessHTTPReply(resp))
+	} else {
+		viewCache := vol.getViewCache()
+		if len(viewCache) == 0 {
+			vol.updateViewCache(m.cluster)
+			viewCache = vol.getViewCache()
+		}
+		send(w, r, viewCache)
 	}
-	resp := &proto.GetVolResponse{
-		VolViewCache: vol.getViewCache(),
-		CheckMess:    checkMessage,
-	}
-	sendOkReply(w, r, newSuccessHTTPReply(resp))
 }
 
 // Obtain the volume information such as total capacity and used space, etc.

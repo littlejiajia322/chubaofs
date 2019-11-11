@@ -2,15 +2,13 @@ package proto
 
 const (
 	// Mandatory
-	MountPoint  = "mountPoint"
-	VolName     = "volName"
-	Owner       = "owner"
-	MasterAddr  = "masterAddr"
-	LogDir      = "logDir"
-	WarnLogDir  = "warnLogDir"
-	ClientKey   = "clientKey"
-	TicketHost  = "ticketHost"
-	EnableHTTPS = "enableHTTPS"
+	MountPoint = "mountPoint"
+	VolName    = "volName"
+	Owner      = "owner"
+	MasterAddr = "masterAddr"
+	LogDir     = "logDir"
+	WarnLogDir = "warnLogDir"
+	NeedTicket = "needTicket"
 	// Optional
 	LogLevel      = "logLevel"
 	ProfPort      = "profPort"
@@ -25,4 +23,7 @@ const (
 	WriteCache    = "writecache"
 	KeepCache     = "keepcache"
 	CertFile      = "certFile"
+	ClientKey     = "clientKey"
+	TicketHost    = "ticketHost"
+	EnableHTTPS   = "enableHTTPS"
 )

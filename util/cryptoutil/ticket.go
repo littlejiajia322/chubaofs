@@ -2,7 +2,7 @@ package cryptoutil
 
 const (
 	TicketVersion = 1
-	TicketAge     = 15 * 60
+	TicketAge     = 7 * 60
 	//TicketAge     = 24 * 60 * 60		//TODO 改回
 )
 

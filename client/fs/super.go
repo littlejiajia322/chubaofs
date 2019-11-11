@@ -52,6 +52,7 @@ type MountOption struct {
 	Rdonly        bool
 	WriteCache    bool
 	KeepCache     bool
+	NeedTicket    bool
 	TicketMess    auth.TicketMess
 }
 
@@ -80,7 +81,7 @@ var (
 // NewSuper returns a new Super.
 func NewSuper(opt *MountOption) (s *Super, err error) {
 	s = new(Super)
-	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.TicketMess)
+	s.mw, err = meta.NewMetaWrapper(opt.Volname, opt.Owner, opt.Master, opt.NeedTicket, opt.TicketMess)
 	if err != nil {
 		return nil, errors.Trace(err, "NewMetaWrapper failed!")
 	}

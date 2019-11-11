@@ -1,8 +1,11 @@
 version: '2.1'
 
 networks:
-  bin_extnetwork:
-    external: true
+  extnetwork:
+    ipam:
+      config:
+        - subnet: 192.168.0.0/24
+          gateway: 192.168.0.1
 
 services:
   monitor:
@@ -12,7 +15,7 @@ services:
       - prometheus
       - grafana
     networks:
-      bin_extnetwork:
+      extnetwork:
 
   servers:
     image: chubaofs/cfs-base:1.0
@@ -28,7 +31,7 @@ services:
       - datanode3
       - datanode4
     networks:
-      bin_extnetwork:
+      extnetwork:
 
   master1:
     image: chubaofs/cfs-base:1.0
@@ -46,7 +49,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
         ipv4_address: 192.168.0.11
 
   master2:
@@ -65,7 +68,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
         ipv4_address: 192.168.0.12
   master3:
     image: chubaofs/cfs-base:1.0
@@ -83,7 +86,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
         ipv4_address: 192.168.0.13
 
   metanode1:
@@ -102,7 +105,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.21
 
   metanode2:
     image: chubaofs/cfs-base:1.0
@@ -120,7 +124,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.22
 
   metanode3:
     image: chubaofs/cfs-base:1.0
@@ -138,7 +143,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.23
 
   datanode1:
     image: chubaofs/cfs-base:1.0
@@ -157,7 +163,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.31
 
   datanode2:
     image: chubaofs/cfs-base:1.0
@@ -176,7 +183,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.32
 
   datanode3:
     image: chubaofs/cfs-base:1.0
@@ -195,7 +203,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.33
 
   datanode4:
     image: chubaofs/cfs-base:1.0
@@ -214,7 +223,8 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
+        ipv4_address: 192.168.0.34
 
   client:
     image: chubaofs/cfs-base:1.0
@@ -233,7 +243,7 @@ services:
       - SYS_ADMIN
     command: /bin/bash /cfs/script/start.sh
     networks:
-      bin_extnetwork:
+      extnetwork:
 
   consul:
     image: consul:1.5
@@ -243,7 +253,7 @@ services:
       - ./monitor:/monitor
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
         ipv4_address: 192.168.0.100
 
   prometheus:
@@ -254,7 +264,7 @@ services:
       - ./monitor/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     privileged: true
     networks:
-      bin_extnetwork:
+      extnetwork:
         ipv4_address: 192.168.0.200
 
   grafana:
@@ -270,7 +280,7 @@ services:
     privileged: true
     #command: /bin/bash
     networks:
-      bin_extnetwork:
+      extnetwork:
 
   build:
     image: chubaofs/cfs-base:1.0
@@ -287,4 +297,4 @@ services:
         echo -n 'build client ' ;
         cd /go/src/github.com/chubaofs/chubaofs/client && bash ./build.sh && mv cfs-client /go/src/github.com/chubaofs/chubaofs/docker/bin/cfs-client && echo 'success' || echo "failed" ;
     networks:
-      bin_extnetwork:
+      extnetwork:

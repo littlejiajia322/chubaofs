@@ -266,11 +266,14 @@ func parseMountOption(cfg *config.Config) (*cfs.MountOption, error) {
 	opt.Rdonly = cfg.GetBool(proto.Rdonly)
 	opt.WriteCache = cfg.GetBool(proto.WriteCache)
 	opt.KeepCache = cfg.GetBool(proto.KeepCache)
-	opt.TicketMess.ClientKey = cfg.GetString(proto.ClientKey)
-	opt.TicketMess.TicketHost = cfg.GetString(proto.TicketHost)
-	opt.TicketMess.EnableHTTPS = cfg.GetBool(proto.EnableHTTPS)
-	if opt.TicketMess.EnableHTTPS {
-		opt.TicketMess.CertFile = cfg.GetString(proto.CertFile)
+	opt.NeedTicket = cfg.GetBool(proto.NeedTicket)
+	if opt.NeedTicket {
+		opt.TicketMess.ClientKey = cfg.GetString(proto.ClientKey)
+		opt.TicketMess.TicketHost = cfg.GetString(proto.TicketHost)
+		opt.TicketMess.EnableHTTPS = cfg.GetBool(proto.EnableHTTPS)
+		if opt.TicketMess.EnableHTTPS {
+			opt.TicketMess.CertFile = cfg.GetString(proto.CertFile)
+		}
 	}
 	//TODO
 	if opt.MountPoint == "" || opt.Volname == "" || opt.Owner == "" || opt.Master == "" {

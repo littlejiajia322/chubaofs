@@ -30,11 +30,14 @@ import (
 	"github.com/chubaofs/chubaofs/util"
 	"github.com/chubaofs/chubaofs/util/btree"
 	"github.com/chubaofs/chubaofs/util/errors"
+	cfslog "github.com/chubaofs/chubaofs/util/log"
 )
 
 const (
 	HostsSeparator                = ","
 	RefreshMetaPartitionsInterval = time.Minute * 5
+	GetTicketMaxRetry             = 200
+	GetTicketSleepInterval        = 100 * time.Millisecond
 )
 
 const (
@@ -79,6 +82,7 @@ type MetaWrapper struct {
 	totalSize uint64
 	usedSize  uint64
 
+	needTicket  bool
 	Ticket      Ticket
 	accessToken proto.APIAccessReq
 	sessionKey  string
@@ -93,17 +97,20 @@ type Ticket struct {
 	Ticket     string `json:"ticket"`
 }
 
-func NewMetaWrapper(volname, owner, masterHosts string, ticketMess auth.TicketMess) (*MetaWrapper, error) {
+func NewMetaWrapper(volname, owner, masterHosts string, needTicket bool, ticketMess auth.TicketMess) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
-	ticket, err := getTicketFromAuthnode(volname, ticketMess)
-	if err != nil {
-		return nil, errors.Trace(err, "Get ticket from authnode failed!")
+	if needTicket {
+		ticket, err := getTicketFromAuthnode(volname, ticketMess)
+		if err != nil {
+			return nil, errors.Trace(err, "Get ticket from authnode failed!")
+		}
+		mw.needTicket = needTicket
+		mw.accessToken.Ticket = ticket.Ticket
+		mw.accessToken.ClientID = volname
+		mw.accessToken.ServiceID = proto.MasterServiceID
+		mw.sessionKey = ticket.SessionKey
+		mw.ticketMess = ticketMess
 	}
-	mw.accessToken.ClientID = volname
-	mw.accessToken.ServiceID = proto.MasterServiceID
-	mw.accessToken.Ticket = ticket.Ticket
-	mw.sessionKey = ticket.SessionKey
-	mw.ticketMess = ticketMess
 	mw.volname = volname
 	mw.owner = owner
 	master := strings.Split(masterHosts, HostsSeparator)
@@ -196,12 +203,13 @@ func statusToErrno(status int) error {
 
 func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket Ticket, err error) {
 	var (
-		key     []byte
-		ts      int64
-		msgResp proto.AuthGetTicketResp
-		body    []byte
-		url     string
-		client  *http.Client
+		key      []byte
+		ts       int64
+		msgResp  proto.AuthGetTicketResp
+		body     []byte
+		urlProto string
+		url      string
+		client   *http.Client
 	)
 
 	key, err = cryptoutil.Base64Decode(ticketMess.ClientKey)
@@ -221,38 +229,49 @@ func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket T
 	}
 
 	if ticketMess.EnableHTTPS {
+		urlProto = "https://"
 		certFile := loadCertfile(ticketMess.CertFile)
-		url = "https://" + ticketMess.TicketHost + proto.ClientGetTicket
 		client, err = cryptoutil.CreateClientX(&certFile)
 		if err != nil {
 			return
 		}
 	} else {
-		url = "http://" + ticketMess.TicketHost + proto.ClientGetTicket
+		urlProto = "http://"
 		client = &http.Client{}
 	}
 
-	body, err = proto.SendData(client, url, message)
+	authnode := strings.Split(ticketMess.TicketHost, HostsSeparator)
+	//TODO 如果是key等本身的错误，不用重试
+	for i := 0; i < GetTicketMaxRetry; i++ {
+		for _, ip := range authnode {
+			url = urlProto + ip + proto.ClientGetTicket
+			body, err = proto.SendData(client, url, message)
 
-	if err != nil {
-		return
+			if err != nil {
+				continue
+			}
+
+			fmt.Printf("\n" + string(body) + "\n")
+
+			if msgResp, err = proto.ParseAuthGetTicketResp(body, key); err != nil {
+				continue
+			}
+
+			if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, volName, "MasterService", ts); err != nil {
+				continue
+			}
+
+			ticket.Ticket = msgResp.Ticket
+			ticket.ServiceID = msgResp.ServiceID
+			ticket.SessionKey = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
+			ticket.ID = volName
+
+			return
+		}
+		cfslog.LogWarnf("GetTicket: getReply error and will RETRY, url(%v) err(%v)", url, err)
+		time.Sleep(GetTicketSleepInterval)
 	}
-
-	fmt.Printf("\n" + string(body) + "\n")
-
-	if msgResp, err = proto.ParseAuthGetTicketResp(body, key); err != nil {
-		return
-	}
-
-	if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, volName, "MasterService", ts); err != nil {
-		return
-	}
-
-	ticket.Ticket = msgResp.Ticket
-	ticket.ServiceID = msgResp.ServiceID
-	ticket.SessionKey = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
-	ticket.ID = volName
-
+	cfslog.LogWarnf("GetTicket exit: send to addr(%v) err(%v)", url, err)
 	return
 }
 
