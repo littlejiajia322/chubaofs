@@ -34,6 +34,7 @@ const (
 	NumberOfDataPartitionsToLoad        = "NumberOfDataPartitionsToLoad"
 	secondsToFreeDataPartitionAfterLoad = "secondsToFreeDataPartitionAfterLoad"
 	nodeSetCapacity                     = "nodeSetCap"
+	cfgMetaNodeReservedMem              = "metaNodeReservedMem"
 	heartbeatPortKey                    = "heartbeatPort"
 	replicaPortKey                      = "replicaPort"
 )
@@ -74,6 +75,7 @@ type clusterConfig struct {
 	DataPartitionTimeOutSec             int64
 	IntervalToAlarmMissingDataPartition int64
 	PeriodToLoadALLDataPartitions       int64
+	metaNodeReservedMem                 uint64
 	IntervalToCheckDataPartition        int // seconds
 	numberOfDataPartitionsToFree        int
 	numberOfDataPartitionsToLoad        int
@@ -97,6 +99,7 @@ func newClusterConfig() (cfg *clusterConfig) {
 	cfg.numberOfDataPartitionsToLoad = defaultNumberOfDataPartitionsToLoad
 	cfg.PeriodToLoadALLDataPartitions = defaultPeriodToLoadAllDataPartitions
 	cfg.MetaNodeThreshold = defaultMetaPartitionMemUsageThreshold
+	cfg.metaNodeReservedMem = defaultMetaNodeReservedMem
 	return
 }
 
@@ -122,7 +125,7 @@ func (cfg *clusterConfig) parsePeers(peerStr string) error {
 		if err != nil {
 			return err
 		}
-		cfg.peers = append(cfg.peers, raftstore.PeerAddress{Peer: proto.Peer{ID: id}, Address: ip})
+		cfg.peers = append(cfg.peers, raftstore.PeerAddress{Peer: proto.Peer{ID: id}, Address: ip, HeartbeatPort: int(cfg.heartbeatPort), ReplicaPort: int(cfg.replicaPort)})
 		address := fmt.Sprintf("%v:%v", ip, port)
 		fmt.Println(address)
 		AddrDatabase[id] = address
