@@ -84,7 +84,7 @@ func TestRaftStore_CreateRaftStore(t *testing.T) {
 	var (
 		cfg     Config
 		err     error
-		testFsm TestFsm
+		testFsm PartitionFsm
 		peers   []PeerAddress
 		data    []byte
 	)
@@ -115,7 +115,7 @@ func TestRaftStore_CreateRaftStore(t *testing.T) {
 		peers = append(peers, PeerAddress{Peer: proto.Peer{ID: uint64(n)}, Address: cfg.IPAddr})
 
 		for k, v := range TestAddresses {
-			raftServer.AddNode(uint64(k), v.ip)
+			raftServer.AddNodeWithPort(uint64(k), v.ip, DefaultHeartbeatPort, DefaultReplicaPort)
 		}
 
 		fmt.Printf("================new raft store %d\n", n)
@@ -126,7 +126,7 @@ func TestRaftStore_CreateRaftStore(t *testing.T) {
 				Applied: 0,
 				Leader:  3,
 				Term:    10,
-				SM:      &testFsm,
+				SM:      testFsm,
 				Peers:   peers,
 			}
 

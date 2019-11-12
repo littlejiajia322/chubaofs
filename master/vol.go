@@ -228,7 +228,7 @@ func (vol *Vol) checkMetaPartitions(c *Cluster) {
 	mps := vol.cloneMetaPartitionMap()
 	for _, mp := range mps {
 
-		mp.checkStatus(true, int(vol.mpReplicaNum), maxPartitionID)
+		mp.checkStatus(c.Name, true, int(vol.mpReplicaNum), maxPartitionID)
 		mp.checkLeader()
 		mp.checkReplicaNum(c, vol.Name, vol.mpReplicaNum)
 		mp.checkEnd(c, maxPartitionID)
@@ -263,7 +263,7 @@ func (vol *Vol) checkSplitMetaPartition(c *Cluster) {
 		Warn(c.Name, msg)
 		return
 	}
-	end := partition.MaxNodeID + defaultMetaPartitionInodeIDStep
+	end := partition.MaxInodeID + defaultMetaPartitionInodeIDStep
 	if err := vol.splitMetaPartition(c, partition, end); err != nil {
 		msg := fmt.Sprintf("action[checkSplitMetaPartition],split meta partition[%v] failed,err[%v]\n",
 			partition.PartitionID, err)
@@ -531,7 +531,7 @@ func (vol *Vol) doSplitMetaPartition(c *Cluster, mp *MetaPartition, end uint64) 
 	if err = mp.canSplit(end); err != nil {
 		return
 	}
-	log.LogWarnf("action[splitMetaPartition],partition[%v],start[%v],end[%v]", mp.PartitionID, mp.Start, mp.End)
+	log.LogWarnf("action[splitMetaPartition],partition[%v],start[%v],end[%v],new end[%v]", mp.PartitionID, mp.Start, mp.End, end)
 	cmdMap := make(map[string]*RaftCmd, 0)
 	oldEnd := mp.End
 	mp.End = end
@@ -602,7 +602,7 @@ func (vol *Vol) doCreateMetaPartition(c *Cluster, start, end uint64) (mp *MetaPa
 		wg          sync.WaitGroup
 	)
 	errChannel := make(chan error, vol.mpReplicaNum)
-	if hosts, peers, err = c.chooseTargetMetaHosts(int(vol.mpReplicaNum)); err != nil {
+	if hosts, peers, err = c.chooseTargetMetaHosts(nil, nil, int(vol.mpReplicaNum)); err != nil {
 		return nil, errors.NewError(err)
 	}
 	log.LogInfof("target meta hosts:%v,peers:%v", hosts, peers)
