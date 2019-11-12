@@ -35,11 +35,9 @@ func (m *Server) handleLeaderChange(leader uint64) {
 	oldLeaderAddr := m.leaderInfo.addr
 	m.leaderInfo.addr = AddrDatabase[leader]
 	log.LogWarnf("action[handleLeaderChange] change leader to [%v] ", m.leaderInfo.addr)
-	m.authProxy = m.newAuthProxy() // TODO why no lock?
+	m.authProxy = m.newAuthProxy() // TODO no lock?
 
 	if m.id == leader {
-		//Warn(m.clusterName, fmt.Sprintf("clusterID[%v] leader is changed to %v",
-		//	m.clusterName, m.leaderInfo.addr))
 		if oldLeaderAddr != m.leaderInfo.addr {
 			if err := m.cluster.loadKeystore(); err != nil {
 				panic(err)
@@ -59,14 +57,13 @@ func (m *Server) handlePeerChange(confChange *proto.ConfChange) (err error) {
 			msg = fmt.Sprintf("action[handlePeerChange] clusterID[%v] nodeAddr[%v] is invalid", m.clusterName, addr)
 			break
 		}
-		m.raftStore.AddNode(confChange.Peer.ID, arr[0])
+		m.raftStore.AddNodeWithPort(confChange.Peer.ID, arr[0], int(m.config.heartbeatPort), int(m.config.replicaPort))
 		AddrDatabase[confChange.Peer.ID] = string(confChange.Context)
 		msg = fmt.Sprintf("clusterID[%v] peerID:%v,nodeAddr[%v] has been add", m.clusterName, confChange.Peer.ID, addr)
 	case proto.ConfRemoveNode:
 		m.raftStore.DeleteNode(confChange.Peer.ID)
 		msg = fmt.Sprintf("clusterID[%v] peerID:%v,nodeAddr[%v] has been removed", m.clusterName, confChange.Peer.ID, addr)
 	}
-	//Warn(m.clusterName, msg)
 	log.LogWarnf(msg)
 	return
 }
@@ -74,10 +71,5 @@ func (m *Server) handlePeerChange(confChange *proto.ConfChange) (err error) {
 func (m *Server) handleApplySnapshot() {
 	log.LogInfo("clusterID[%v] peerID:%v action[handleApplySnapshot]", m.clusterName, m.id)
 	m.fsm.restore()
-	//m.restoreIDAlloc()
 	return
-}
-
-func (m *Server) restoreIDAlloc() {
-	//m.cluster.idAlloc.restore()
 }

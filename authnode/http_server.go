@@ -1,8 +1,21 @@
+// Copyright 2018 The Chubao Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package authnode
 
 import (
 	"crypto/tls"
-	"fmt"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"net/http"
 	"net/http/httputil"
@@ -16,7 +29,6 @@ func (m *Server) startHTTPService() {
 	go func() {
 		m.handleFunctions()
 		if m.cluster.PKIKey.EnableHTTPS {
-			fmt.Printf("start https + %s\n", colonSplit+m.port)
 			// not use PKI to verify client certificate
 			// Instead, we use client secret key for authentication
 			cfg := &tls.Config{
@@ -32,7 +44,6 @@ func (m *Server) startHTTPService() {
 				panic(err)
 			}
 		} else {
-			fmt.Printf("start http + %s\n", colonSplit+m.port)
 			if err := http.ListenAndServe(colonSplit+m.port, nil); err != nil {
 				log.LogErrorf("action[startHTTPService] failed,err[%v]", err)
 				panic(err)
@@ -83,7 +94,7 @@ func (m *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case proto.AdminRemoveRaftNode:
 		m.raftNodeOp(w, r)
 	default:
-		//TODO
+		sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeParamError, Msg: "Invalid requst URL"})
 	}
 }
 
@@ -140,7 +151,6 @@ func (m *Server) proxy(w http.ResponseWriter, r *http.Request) {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthReqRedirectError, Msg: "[proxy] failed: " + err.Error()})
 			return
 		}
-		fmt.Printf("\n" + string(res) + "\n")
 		if jobj, err = proto.ParseAuthReply(res); err != nil {
 			sendErrReply(w, r, &proto.HTTPAuthReply{Code: errors.ErrCodeAuthReqRedirectError, Msg: "Target Server failed: " + err.Error()})
 			return

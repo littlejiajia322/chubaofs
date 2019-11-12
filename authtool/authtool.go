@@ -8,10 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"time"
-
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/chubaofs/chubaofs/proto"
 	"github.com/chubaofs/chubaofs/util/config"
@@ -29,6 +28,8 @@ const (
 	DeleteCaps     = "deletecaps"
 	AddRaftNode    = "addraftnode"
 	RemoveRaftNode = "removeraftnode"
+	HTTP           = "http://"
+	HTTPS          = "https://"
 )
 
 var action2PathMap = map[string]string{
@@ -109,7 +110,7 @@ func sendReqX(target string, data interface{}, cert *[]byte) (res []byte, err er
 	var (
 		client *http.Client
 	)
-	target = "https://" + target
+	target = HTTPS + target
 	client, err = cryptoutil.CreateClientX(cert)
 	if err != nil {
 		return
@@ -119,7 +120,7 @@ func sendReqX(target string, data interface{}, cert *[]byte) (res []byte, err er
 }
 
 func sendReq(target string, data interface{}) (res []byte, err error) {
-	target = "http://" + target
+	target = HTTP + target
 	client := &http.Client{}
 	res, err = proto.SendData(client, target, data)
 	return
@@ -176,13 +177,13 @@ func getTicketFromAuth(keyring *keyRing) (ticketfile ticketFile) {
 }
 
 func getTicket() {
-	cfg, err := config.LoadConfigFile(flaginfo.ticket.key)
-	if err != nil {
-		panic(err)
+	cfg, err1 := config.LoadConfigFile(flaginfo.ticket.key)
+	if err1 != nil {
+		panic(err1)
 	}
-	key, err := cryptoutil.Base64Decode(cfg.GetString("key"))
-	if err != nil {
-		panic(err)
+	key, err2 := cryptoutil.Base64Decode(cfg.GetString("key"))
+	if err2 != nil {
+		panic(err2)
 	}
 	keyring := keyRing{
 		ID:  cfg.GetString("id"),

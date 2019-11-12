@@ -5,7 +5,7 @@ BIN_PATH := build/bin
 BIN_SERVER := $(BIN_PATH)/cfs-server
 BIN_CLIENT := $(BIN_PATH)/cfs-client
 BIN_CLIENT2 := $(BIN_PATH)/cfs-client2
-BIN_AUTHTOOL := $(BIN_PATH)/cfs-client2
+BIN_AUTHTOOL := $(BIN_PATH)/cfs-authtool
 
 COMMON_SRC := build/build.sh Makefile
 COMMON_SRC += $(wildcard storage/*.go util/*/*.go util/*.go repl/*.go raftstore/*.go proto/*.go)
@@ -21,15 +21,15 @@ default: all
 phony := all
 all: build
 
-phony += build server authtool #client client2
-build: server authtool #client
+phony += build server authtool client client2
+build: server authtool client
 
 server: $(BIN_SERVER)
 
 client: $(BIN_CLIENT)
 
 client2: $(BIN_CLIENT2)
-	
+
 authtool: $(BIN_AUTHTOOL)
 
 $(BIN_SERVER): $(COMMON_SRC) ${SERVER_SRC}
@@ -40,7 +40,7 @@ $(BIN_CLIENT): $(COMMON_SRC) $(CLIENT_SRC)
 
 $(BIN_CLIENT2): $(COMMON_SRC) $(CLIENT2_SRC)
 	@build/build.sh client2
-	
+
 $(BIN_AUTHTOOL): $(COMMON_SRC) $(CLIENTTOOL_SRC)
 	@build/build.sh authtool
 

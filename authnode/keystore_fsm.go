@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	applied = "applied" //TODO meaning?
+	applied = "applied"
 )
 
 type raftLeaderChangeHandler func(leader uint64)
@@ -77,7 +77,6 @@ func (mf *KeystoreFsm) restore() {
 }
 
 func (mf *KeystoreFsm) restoreApplied() {
-
 	value, err := mf.Get(applied)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to restore applied err:%v", err.Error()))
