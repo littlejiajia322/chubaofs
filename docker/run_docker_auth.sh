@@ -7,7 +7,7 @@ export DiskPath="$RootPath/docker/disk"
 help() {
     cat <<EOF
 
-Usage: ./run_docker.sh [ -h | --help ] [ -d | --disk </disk/path> ] [ -l | --ltptest ]
+Usage: ./run_docker_auth.sh [ -h | --help ] [ -d | --disk </disk/path> ] [ -l | --ltptest ]
     -h, --help              show help info
     -d, --disk </disk/path>     set datanode local disk path
     -b, --build             build chubaofs server and cliente

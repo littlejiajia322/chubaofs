@@ -55,6 +55,7 @@ require (
 	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
 	golang.org/x/sys v0.0.0-20191001151750-bb3f8db39f24 // indirect
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20191001170858-4414aad16ca7 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 	gopkg.in/yaml.v2 v2.2.3 // indirect
