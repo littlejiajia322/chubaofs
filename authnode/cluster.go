@@ -1,3 +1,17 @@
+// Copyright 2018 The Chubao Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package authnode
 
 import (
@@ -46,7 +60,6 @@ func newCluster(name string, leaderInfo *LeaderInfo, fsm *KeystoreFsm, partition
 	c.fsm = fsm
 	c.partition = partition
 	c.keystore = new(map[string]*keystore.KeyInfo)
-	//c.idAlloc = newIDAllocator(c.fsm.store, c.partition)
 	return
 }
 
@@ -70,16 +83,14 @@ func (c *Cluster) scheduleToCheckHeartbeat() {
 	}()
 }
 
-// TODO: add lock, implemented as raftcmd
 func (c *Cluster) scheduleToLoadKeystore() {
 	go func() {
 		for {
-			time.Sleep(time.Second * defaultIntervalToLoadKeystore)
 			if c.partition != nil && !c.partition.IsRaftLeader() {
 				c.clearKeystore()
 				c.loadKeystore()
 			}
-			//time.Sleep(time.Second * defaultIntervalToLoadKeystore)
+			time.Sleep(time.Second * defaultIntervalToLoadKeystore)
 		}
 	}()
 }
@@ -133,7 +144,6 @@ func (c *Cluster) CreateNewKey(id string, keyInfo *keystore.KeyInfo) (res *keyst
 errHandler:
 	err = fmt.Errorf("action[CreateNewKey], clusterID[%v] ID:%v, err:%v ", c.Name, keyInfo, err.Error())
 	log.LogError(errors.Stack(err))
-	//Warn(c.Name, err.Error())
 	return
 }
 
@@ -153,7 +163,6 @@ func (c *Cluster) DeleteKey(id string) (res *keystore.KeyInfo, err error) {
 errHandler:
 	err = fmt.Errorf("action[DeleteKey], clusterID[%v] ID:%v, err:%v ", c.Name, id, err.Error())
 	log.LogError(errors.Stack(err))
-	//Warn(c.Name, err.Error())
 	return
 }
 
@@ -167,7 +176,6 @@ func (c *Cluster) GetKey(id string) (res *keystore.KeyInfo, err error) {
 errHandler:
 	err = fmt.Errorf("action[GetKey], clusterID[%v] ID:%v, err:%v ", c.Name, id, err.Error())
 	log.LogError(errors.Stack(err))
-	//Warn(c.Name, err.Error())
 	return
 }
 
@@ -206,7 +214,6 @@ func (c *Cluster) AddCaps(id string, keyInfo *keystore.KeyInfo) (res *keystore.K
 errHandler:
 	err = fmt.Errorf("action[AddCaps], clusterID[%v] ID:%v, err:%v ", c.Name, keyInfo, err.Error())
 	log.LogError(errors.Stack(err))
-	//Warn(c.Name, err.Error())
 	return
 }
 
@@ -247,6 +254,5 @@ func (c *Cluster) DeleteCaps(id string, keyInfo *keystore.KeyInfo) (res *keystor
 errHandler:
 	err = fmt.Errorf("action[DeleteCaps], clusterID[%v] ID:%v, err:%v ", c.Name, keyInfo, err.Error())
 	log.LogError(errors.Stack(err))
-	//Warn(c.Name, err.Error())
 	return
 }

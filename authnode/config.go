@@ -1,3 +1,17 @@
+// Copyright 2018 The Chubao Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package authnode
 
 import (
@@ -30,7 +44,7 @@ const (
 	defaultSecondsToFreeDataPartitionAfterLoad = 5 * 60 // a data partition can only be freed after loading 5 mins
 	defaultIntervalToFreeDataPartition         = 10     // in terms of seconds
 	defaultIntervalToCheckHeartbeat            = 60
-	defaultIntervalToLoadKeystore              = 5 * 60
+	defaultIntervalToLoadKeystore              = 2 * 60
 	defaultIntervalToCheckDataPartition        = 60
 	defaultIntervalToCheckCrc                  = 20 * defaultIntervalToCheckHeartbeat // in terms of seconds
 	noHeartBeatTimes                           = 3                                    // number of times that no heartbeat reported
@@ -90,7 +104,6 @@ func (cfg *clusterConfig) parsePeers(peerStr string) error {
 		}
 		cfg.peers = append(cfg.peers, raftstore.PeerAddress{Peer: proto.Peer{ID: id}, Address: ip})
 		address := fmt.Sprintf("%v:%v", ip, port)
-		fmt.Println(address)
 		AddrDatabase[id] = address
 	}
 	return nil

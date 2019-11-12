@@ -1,3 +1,17 @@
+// Copyright 2018 The Chubao Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package authnode
 
 import (
@@ -50,7 +64,7 @@ type Server struct {
 	fsm          *KeystoreFsm
 	partition    raftstore.Partition
 	wg           sync.WaitGroup
-	authProxy    *AuthProxy //httputil.ReverseProxy
+	authProxy    *AuthProxy
 	metaReady    bool
 }
 
@@ -109,7 +123,6 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 
 	m.config.heartbeatPort = cfg.GetInt64(heartbeatPortKey)
 	m.config.replicaPort = cfg.GetInt64(replicaPortKey)
-	fmt.Printf("heartbeatPort[%v],replicaPort[%v]\n", m.config.heartbeatPort, m.config.replicaPort)
 	m.tickInterval = int(cfg.GetFloat(cfgTickInterval))
 	m.electionTick = int(cfg.GetFloat(cfgElectionTick))
 	if m.tickInterval <= 300 {
@@ -145,7 +158,6 @@ func (m *Server) createRaftServer() (err error) {
 	if m.raftStore, err = raftstore.NewRaftStore(raftCfg); err != nil {
 		return errors.Trace(err, "NewRaftStore failed! id[%v] walPath[%v]", m.id, m.walDir)
 	}
-	fmt.Println(m.config.peers, m.tickInterval, m.electionTick)
 	m.initFsm()
 	partitionCfg := &raftstore.PartitionConfig{
 		ID:      GroupID,
@@ -173,7 +185,6 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 		return
 	}
 	m.initCluster()
-	//exporter.Init(ModuleName, cfg)
 	m.cluster.partition = m.partition
 
 	AuthSecretKey := cfg.GetString(AuthSecretKey)
@@ -200,12 +211,8 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	}
 	m.authProxy = m.newAuthProxy()
 
-	//m.cluster.idAlloc.partition = m.partition
 	m.cluster.scheduleTask()
 	m.startHTTPService()
-	//exporter.RegistConsul(m.clusterName, ModuleName, cfg)
-	//metricsService := newMonitorMetrics(m.cluster)
-	//metricsService.start()
 	m.wg.Add(1)
 	return nil
 }
@@ -217,9 +224,7 @@ func (m *Server) Shutdown() {
 
 // Sync waits for the execution termination of the server
 func (m *Server) Sync() {
-	fmt.Printf("Sync start\n")
 	m.wg.Wait()
-	fmt.Printf("Sync end\n")
 }
 
 func (m *Server) initCluster() {

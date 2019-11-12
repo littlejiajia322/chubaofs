@@ -198,8 +198,6 @@ var MsgType2ResourceMap = map[MsgType]string{
 	MsgMasterUpdateVolStateInfoReq:  "master:updatevolstate",
 }
 
-var MsgType2MasterResourceMap = map[MsgType]string{}
-
 // AuthGetTicketReq defines the message from client to authnode
 // use Timestamp as verifier for MITM mitigation
 // verifier is also used to verify the server identity
@@ -537,12 +535,9 @@ func VerifyTicketRespComm(ticketResp *AuthGetTicketResp, msg MsgType, clientID s
 	return
 }
 
-// SendString send raw bytes target in http/https protocol
+// SendBytes send raw bytes target in http/https protocol
 func SendBytes(client *http.Client, target string, data []byte) (res []byte, err error) {
-	//fmt.Printf("SendData: %s", string(data))
 	message := base64.StdEncoding.EncodeToString(data)
-
-	fmt.Printf("url=%s\n", target)
 	resp, err := client.PostForm(target, url.Values{ClientMessage: {message}})
 	if err != nil {
 		err = fmt.Errorf("action[SendData] failed:" + err.Error())
