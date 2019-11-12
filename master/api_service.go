@@ -563,6 +563,7 @@ func newSimpleView(vol *Vol) *proto.SimpleVolView {
 		Capacity:           vol.Capacity,
 		FollowerRead:       vol.FollowerRead,
 		NeedToLowerReplica: vol.NeedToLowerReplica,
+		NeedTicket:         vol.needTicket,
 		RwDpCnt:            vol.dataPartitions.readableAndWritableCnt,
 		MpCnt:              len(vol.MetaPartitions),
 		DpCnt:              len(vol.dataPartitions.partitionMap),
@@ -1334,6 +1335,11 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, newErrHTTPReply(errors.ErrVolAuthKeyNotMatch))
 		return
 	}
+	viewCache := vol.getViewCache()
+	if len(viewCache) == 0 {
+		vol.updateViewCache(m.cluster)
+		viewCache = vol.getViewCache()
+	}
 	if vol.needTicket {
 		if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
 			if err == errors.ErrExpiredTicket {
@@ -1348,16 +1354,11 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		resp := &proto.GetVolResponse{
-			VolViewCache: vol.getViewCache(),
+			VolViewCache: viewCache,
 			CheckMess:    checkMessage,
 		}
 		sendOkReply(w, r, newSuccessHTTPReply(resp))
 	} else {
-		viewCache := vol.getViewCache()
-		if len(viewCache) == 0 {
-			vol.updateViewCache(m.cluster)
-			viewCache = vol.getViewCache()
-		}
 		send(w, r, viewCache)
 	}
 }
