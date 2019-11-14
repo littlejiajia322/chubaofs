@@ -9,7 +9,6 @@
 	"exporterPort": 9500,
 	"profPort": "17410",
 	"needTicket": true,
-	"clientKey": "OS2ErsiMACPWwHH3mgXF2ORqaQzQ58B21BUsy8+p23E=",
 	"ticketHost": "192.168.0.14:8080,192.168.0.15:8081,192.168.0.16:8082",
 	"enableHTTPS": "false"
 }
