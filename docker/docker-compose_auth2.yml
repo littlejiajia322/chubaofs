@@ -224,7 +224,7 @@ services:
       - ./bin:/cfs/bin
       - ./conf/client.json:/cfs/conf/client.json
       - ./script/run_test.sh:/cfs/script/start.sh
-      - ./script/start_client.sh:/cfs/script/start_client.sh
+      - ./script/start_client_auth.sh:/cfs/script/start_client.sh
       - ./ltp/runtest/fs:/opt/ltp/runtest/fs
     privileged: true
     devices:

@@ -36,7 +36,7 @@ import (
 const (
 	HostsSeparator                = ","
 	RefreshMetaPartitionsInterval = time.Minute * 5
-	GetTicketMaxRetry             = 200
+	GetTicketMaxRetry             = 5
 	GetTicketSleepInterval        = 100 * time.Millisecond
 )
 
