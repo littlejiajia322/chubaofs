@@ -397,7 +397,7 @@ type SimpleVolView struct {
 	DpCnt              int
 	FollowerRead       bool
 	NeedToLowerReplica bool
-	NeedTicket         bool
+	Authenticate       bool
 }
 
 // GetVolResponse defines the response for getting meta partition

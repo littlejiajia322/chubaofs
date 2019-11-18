@@ -2,13 +2,13 @@ package proto
 
 const (
 	// Mandatory
-	MountPoint = "mountPoint"
-	VolName    = "volName"
-	Owner      = "owner"
-	MasterAddr = "masterAddr"
-	LogDir     = "logDir"
-	WarnLogDir = "warnLogDir"
-	NeedTicket = "needTicket"
+	MountPoint   = "mountPoint"
+	VolName      = "volName"
+	Owner        = "owner"
+	MasterAddr   = "masterAddr"
+	LogDir       = "logDir"
+	WarnLogDir   = "warnLogDir"
+	Authenticate = "authenticate"
 	// Optional
 	LogLevel      = "logLevel"
 	ProfPort      = "profPort"

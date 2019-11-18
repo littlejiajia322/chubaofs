@@ -115,7 +115,7 @@ type volValue struct {
 	Capacity          uint64
 	Owner             string
 	FollowerRead      bool
-	NeedTicket        bool
+	Authenticate      bool
 }
 
 func newVolValue(vol *Vol) (vv *volValue) {
@@ -129,7 +129,7 @@ func newVolValue(vol *Vol) (vv *volValue) {
 		Capacity:          vol.Capacity,
 		Owner:             vol.Owner,
 		FollowerRead:      vol.FollowerRead,
-		NeedTicket:        vol.needTicket,
+		Authenticate:      vol.authenticate,
 	}
 	return
 }
@@ -524,7 +524,7 @@ func (c *Cluster) loadVols() (err error) {
 			err = fmt.Errorf("action[loadVols],value:%v,unmarshal err:%v", string(value), err)
 			return err
 		}
-		vol := newVol(vv.ID, vv.Name, vv.Owner, vv.DataPartitionSize, vv.Capacity, vv.DpReplicaNum, vv.ReplicaNum, vv.FollowerRead, vv.NeedTicket)
+		vol := newVol(vv.ID, vv.Name, vv.Owner, vv.DataPartitionSize, vv.Capacity, vv.DpReplicaNum, vv.ReplicaNum, vv.FollowerRead, vv.Authenticate)
 		vol.Status = vv.Status
 		c.putVol(vol)
 		log.LogInfof("action[loadVols],vol[%v]", vol.Name)

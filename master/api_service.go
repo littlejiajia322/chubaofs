@@ -485,8 +485,10 @@ func (m *Server) updateVol(w http.ResponseWriter, r *http.Request) {
 		capacity     int
 		replicaNum   int
 		followerRead bool
+		authenticate bool
+		vol          *Vol
 	)
-	if name, authKey, capacity, replicaNum, followerRead, err = parseRequestToUpdateVol(r); err != nil {
+	if name, authKey, capacity, replicaNum, err = parseRequestToUpdateVol(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
@@ -495,11 +497,15 @@ func (m *Server) updateVol(w http.ResponseWriter, r *http.Request) {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	if _, err = m.cluster.getVol(name); err != nil {
+	if vol, err = m.cluster.getVol(name); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeVolNotExists, Msg: err.Error()})
 		return
 	}
-	if err = m.cluster.updateVol(name, authKey, uint64(capacity), uint8(replicaNum), followerRead); err != nil {
+	if followerRead, authenticate, err = parseBoolFieldToUpdateVol(r, vol); err != nil {
+		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
+		return
+	}
+	if err = m.cluster.updateVol(name, authKey, uint64(capacity), uint8(replicaNum), followerRead, authenticate); err != nil {
 		sendErrReply(w, r, newErrHTTPReply(err))
 		return
 	}
@@ -518,14 +524,14 @@ func (m *Server) createVol(w http.ResponseWriter, r *http.Request) {
 		capacity     int
 		vol          *Vol
 		followerRead bool
-		needTicket   bool
+		authenticate bool
 	)
 
-	if name, owner, mpCount, size, capacity, followerRead, needTicket, err = parseRequestToCreateVol(r); err != nil {
+	if name, owner, mpCount, size, capacity, followerRead, authenticate, err = parseRequestToCreateVol(r); err != nil {
 		sendErrReply(w, r, &proto.HTTPReply{Code: errors.ErrCodeParamError, Msg: err.Error()})
 		return
 	}
-	if vol, err = m.cluster.createVol(name, owner, mpCount, size, capacity, followerRead, needTicket); err != nil {
+	if vol, err = m.cluster.createVol(name, owner, mpCount, size, capacity, followerRead, authenticate); err != nil {
 		sendErrReply(w, r, newErrHTTPReply(err))
 		return
 	}
@@ -563,7 +569,7 @@ func newSimpleView(vol *Vol) *proto.SimpleVolView {
 		Capacity:           vol.Capacity,
 		FollowerRead:       vol.FollowerRead,
 		NeedToLowerReplica: vol.NeedToLowerReplica,
-		NeedTicket:         vol.needTicket,
+		Authenticate:       vol.authenticate,
 		RwDpCnt:            vol.dataPartitions.readableAndWritableCnt,
 		MpCnt:              len(vol.MetaPartitions),
 		DpCnt:              len(vol.dataPartitions.partitionMap),
@@ -920,7 +926,7 @@ func parseRequestToDeleteVol(r *http.Request) (name, authKey string, err error) 
 
 }
 
-func parseRequestToUpdateVol(r *http.Request) (name, authKey string, capacity, replicaNum int, followerRead bool, err error) {
+func parseRequestToUpdateVol(r *http.Request) (name, authKey string, capacity, replicaNum int, err error) {
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -945,16 +951,30 @@ func parseRequestToUpdateVol(r *http.Request) (name, authKey string, capacity, r
 			return
 		}
 	}
+	return
+}
+
+func parseBoolFieldToUpdateVol(r *http.Request, vol *Vol) (followerRead, authenticate bool, err error) {
 	if followerReadStr := r.FormValue(followerReadKey); followerReadStr != "" {
 		if followerRead, err = strconv.ParseBool(followerReadStr); err != nil {
 			err = unmatchedKey(followerReadKey)
 			return
 		}
+	} else {
+		followerRead = vol.FollowerRead
+	}
+	if authenticateStr := r.FormValue(authenticateKey); authenticateStr != "" {
+		if authenticate, err = strconv.ParseBool(authenticateStr); err != nil {
+			err = unmatchedKey(authenticateKey)
+			return
+		}
+	} else {
+		authenticate = vol.authenticate
 	}
 	return
 }
 
-func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size, capacity int, followerRead, needTicket bool, err error) {
+func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size, capacity int, followerRead, authenticate bool, err error) {
 	if err = r.ParseForm(); err != nil {
 		return
 	}
@@ -991,7 +1011,7 @@ func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size
 		return
 	}
 
-	if needTicket, err = extractNeedTicket(r); err != nil {
+	if authenticate, err = extractAuthenticate(r); err != nil {
 		return
 	}
 
@@ -1153,13 +1173,13 @@ func extractFollowerRead(r *http.Request) (followerRead bool, err error) {
 	return
 }
 
-func extractNeedTicket(r *http.Request) (needTicket bool, err error) {
+func extractAuthenticate(r *http.Request) (authenticate bool, err error) {
 	var value string
-	if value = r.FormValue(needTicketKey); value == "" {
-		needTicket = true
+	if value = r.FormValue(authenticateKey); value == "" {
+		authenticate = false
 		return
 	}
-	if needTicket, err = strconv.ParseBool(value); err != nil {
+	if authenticate, err = strconv.ParseBool(value); err != nil {
 		return
 	}
 	return
@@ -1340,7 +1360,7 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		vol.updateViewCache(m.cluster)
 		viewCache = vol.getViewCache()
 	}
-	if vol.needTicket {
+	if vol.authenticate {
 		if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
 			if err == errors.ErrExpiredTicket {
 				sendErrReply(w, r, newErrHTTPReply(err))

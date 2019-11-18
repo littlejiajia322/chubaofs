@@ -57,7 +57,7 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		return nil, err
 	}
 	params["authKey"] = authKey
-	if mw.needTicket {
+	if mw.authenticate {
 		mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
 		tokenMessage, ts, err := genMasterToken(mw.accessToken, mw.sessionKey)
 		if err != nil {

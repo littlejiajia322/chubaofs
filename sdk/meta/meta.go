@@ -82,11 +82,11 @@ type MetaWrapper struct {
 	totalSize uint64
 	usedSize  uint64
 
-	needTicket  bool
-	Ticket      Ticket
-	accessToken proto.APIAccessReq
-	sessionKey  string
-	ticketMess  auth.TicketMess
+	authenticate bool
+	Ticket       Ticket
+	accessToken  proto.APIAccessReq
+	sessionKey   string
+	ticketMess   auth.TicketMess
 }
 
 //the ticket from authnode
@@ -97,14 +97,14 @@ type Ticket struct {
 	Ticket     string `json:"ticket"`
 }
 
-func NewMetaWrapper(volname, owner, masterHosts string, needTicket bool, ticketMess auth.TicketMess) (*MetaWrapper, error) {
+func NewMetaWrapper(volname, owner, masterHosts string, authenticate bool, ticketMess auth.TicketMess) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
-	if needTicket {
+	if authenticate {
 		ticket, err := getTicketFromAuthnode(volname, ticketMess)
 		if err != nil {
 			return nil, errors.Trace(err, "Get ticket from authnode failed!")
 		}
-		mw.needTicket = needTicket
+		mw.authenticate = authenticate
 		mw.accessToken.Ticket = ticket.Ticket
 		mw.accessToken.ClientID = volname
 		mw.accessToken.ServiceID = proto.MasterServiceID
@@ -216,12 +216,11 @@ func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket T
 	if err != nil {
 		return
 	}
-	//TODO 测试一下此处返回的ticket是什么
 	// construct request body
 	message := proto.AuthGetTicketReq{
 		Type:      proto.MsgAuthTicketReq,
 		ClientID:  volName,
-		ServiceID: "MasterService",
+		ServiceID: proto.MasterServiceID,
 	}
 
 	if message.Verifier, ts, err = cryptoutil.GenVerifier(key); err != nil {

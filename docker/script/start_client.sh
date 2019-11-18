@@ -57,7 +57,7 @@ create_vol() {
         return
     fi
     echo -n "create vol "
-    res=$(curl -s "http://$LeaderAddr/admin/createVol?name=$VolName&capacity=30&owner=ltptest&needTicket=false")
+    res=$(curl -s "http://$LeaderAddr/admin/createVol?name=$VolName&capacity=30&owner=ltptest")
     code=$(echo "$res" | jq .code)
     if [[ $code -ne 0 ]] ; then
         echo "failed, exit"
