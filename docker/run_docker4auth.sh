@@ -5,12 +5,15 @@ cd ..
 cp -r ./docker/authnode/. ./build/bin
 cd build/bin
 ./cfs-authtool authkey
-authnodeKey=$(sed -n '3p' keyring.json | sed 's/key/authServiceKey/g')
+authnodeKey=$(sed -n '3p' authservice.json | sed 's/key/authServiceKey/g')
+authnodeRootKey=$(sed -n '3p' authroot.json | sed 's/key/authRootKey/g')
 line=`expr $(cat authnode1.json | wc -l) - 1`
+sed -i "${line}i ${authnodeRootKey}" authnode1.json
+sed -i "${line}i ${authnodeRootKey}" authnode2.json
+sed -i "${line}i ${authnodeRootKey}" authnode3.json
 sed -i "${line}i ${authnodeKey}" authnode1.json
 sed -i "${line}i ${authnodeKey}" authnode2.json
 sed -i "${line}i ${authnodeKey}" authnode3.json
-
 #start authnode
 ./build.sh      #TODO 需要吗？
 docker-compose up -d

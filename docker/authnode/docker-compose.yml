@@ -7,6 +7,9 @@ services:
     restart: always
     ports:
       - "8080:8083"
+    volumes:
+      - ./authnode1.json:/app/authnode1.json
+      - ./cfs-server:/app/cfs-server
     networks:
       extnetwork:
         ipv4_address: 192.168.0.14
@@ -16,6 +19,9 @@ services:
     restart: always
     ports:
       - "8081:8084"
+    volumes:
+      - ./authnode2.json:/app/authnode2.json
+      - ./cfs-server:/app/cfs-server
     networks:
       extnetwork:
         ipv4_address: 192.168.0.15
@@ -26,6 +32,9 @@ services:
     restart: always
     ports:
       - "8082:8085"
+    volumes:
+      - ./authnode3.json:/app/authnode3.json
+      - ./cfs-server:/app/cfs-server
     networks:
       extnetwork:
         ipv4_address: 192.168.0.16
