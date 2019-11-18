@@ -453,20 +453,25 @@ func main() {
 		accessAPI()
 	case "authkey":
 		len := authkeyCmd.Int("keylen", 32, "length of authkey")
-		output := authkeyCmd.String("output", "keyring.json", "output path to keyring file")
+		output := [2]*string{
+			authkeyCmd.String("rootkey", "authroot.json", "output path to keyring file of auth root"),
+			authkeyCmd.String("servicekey", "authservice.json", "output path to keyring file of service"),
+		}
 		authkeyCmd.Parse(os.Args[2:])
-		random, err := generateRandomBytes(*len)
-		if err != nil {
-			panic(err)
+		for i := range output {
+			random, err := generateRandomBytes(*len)
+			if err != nil {
+				panic(err)
+			}
+			keyInfo := keystore.KeyInfo{
+				ID:   "AuthService",
+				Key:  random,
+				Ts:   time.Now().Unix(),
+				Role: "AuthService",
+				Caps: []byte(`{"*"}`),
+			}
+			keyInfo.DumpJSONFile(*output[i])
 		}
-		keyInfo := keystore.KeyInfo{
-			ID:   "AuthService",
-			Key:  random,
-			Ts:   time.Now().Unix(),
-			Role: "AuthService",
-			Caps: []byte(`{"*"}`),
-		}
-		keyInfo.DumpJSONFile(*output)
 
 	default:
 		fmt.Println("expected 'ticket', 'api' or 'authkey'subcommands")

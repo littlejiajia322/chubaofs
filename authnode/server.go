@@ -107,10 +107,18 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	if m.id, err = strconv.ParseUint(cfg.GetString(ID), 10, 64); err != nil {
 		return fmt.Errorf("%v,err:%v", errors.ErrInvalidCfg, err.Error())
 	}
+	m.config.heartbeatPort = cfg.GetInt64(heartbeatPortKey)
+	m.config.replicaPort = cfg.GetInt64(replicaPortKey)
+	if m.config.heartbeatPort <= 1024 {
+		m.config.heartbeatPort = raftstore.DefaultHeartbeatPort
+	}
+	if m.config.replicaPort <= 1024 {
+		m.config.replicaPort = raftstore.DefaultReplicaPort
+	}
+	fmt.Printf("heartbeatPort[%v],replicaPort[%v]\n", m.config.heartbeatPort, m.config.replicaPort)
 	if err = m.config.parsePeers(peerAddrs); err != nil {
 		return
 	}
-
 	retainLogs := cfg.GetString(CfgRetainLogs)
 	if retainLogs != "" {
 		if m.retainLogs, err = strconv.ParseUint(retainLogs, 10, 64); err != nil {
@@ -120,9 +128,8 @@ func (m *Server) checkConfig(cfg *config.Config) (err error) {
 	if m.retainLogs <= 0 {
 		m.retainLogs = DefaultRetainLogs
 	}
+	fmt.Println("retainLogs=", m.retainLogs)
 
-	m.config.heartbeatPort = cfg.GetInt64(heartbeatPortKey)
-	m.config.replicaPort = cfg.GetInt64(replicaPortKey)
 	m.tickInterval = int(cfg.GetFloat(cfgTickInterval))
 	m.electionTick = int(cfg.GetFloat(cfgElectionTick))
 	if m.tickInterval <= 300 {
