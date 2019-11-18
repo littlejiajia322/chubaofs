@@ -16,7 +16,6 @@ package master
 
 import (
 	"fmt"
-	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"net/http/httputil"
 	"regexp"
 	"strconv"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/chubaofs/chubaofs/raftstore"
 	"github.com/chubaofs/chubaofs/util/config"
+	"github.com/chubaofs/chubaofs/util/cryptoutil"
 	"github.com/chubaofs/chubaofs/util/errors"
 	"github.com/chubaofs/chubaofs/util/exporter"
 	"github.com/chubaofs/chubaofs/util/log"

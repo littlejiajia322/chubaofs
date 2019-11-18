@@ -12,9 +12,9 @@ COMMON_SRC += $(wildcard storage/*.go util/*/*.go util/*.go repl/*.go raftstore/
 SERVER_SRC := $(wildcard cmd/*.go authnode/*.go datanode/*.go master/*.go metanode/*.go)
 CLIENT_SRC := $(wildcard client/*.go client/fs/*.go sdk/*.go)
 CLIENT2_SRC := $(wildcard clientv2/*.go clientv2/fs/*.go sdk/*.go)
-CLIENTTOOL_SRC := $(wildcard authtool/*.go)
+AUTHTOOL_SRC := $(wildcard authtool/*.go)
 
-RM := $(shell [[ -x /bin/rm ]] && echo "/bin/rm -rf" || echo "/bin/rm -rf" )
+RM := $(shell [[ -x /bin/rm ]] && echo "/bin/rm -rf" || echo "/usr/bin/rm -rf" )
 
 default: all
 
@@ -41,7 +41,7 @@ $(BIN_CLIENT): $(COMMON_SRC) $(CLIENT_SRC)
 $(BIN_CLIENT2): $(COMMON_SRC) $(CLIENT2_SRC)
 	@build/build.sh client2
 
-$(BIN_AUTHTOOL): $(COMMON_SRC) $(CLIENTTOOL_SRC)
+$(BIN_AUTHTOOL): $(COMMON_SRC) $(AUTHTOOL_SRC)
 	@build/build.sh authtool
 
 phony += clean
