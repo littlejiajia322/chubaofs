@@ -55,8 +55,8 @@ const (
 	DefaultRaftDir          = "raft"
 	DefaultRaftLogsToRetain = 10 // Count of raft logs per data partition
 	DefaultDiskMaxErr       = 1
-	DefaultDiskRetainMin    = 20 * util.GB // GB
-	DefaultDiskRetainMax    = 50 * util.GB // GB
+	DefaultDiskRetainMin    = 5 * util.GB  // GB
+	DefaultDiskRetainMax    = 30 * util.GB // GB
 )
 
 const (
@@ -242,9 +242,7 @@ func (s *DataNode) startSpaceManager(cfg *config.Config) (err error) {
 		if reservedSpace < DefaultDiskRetainMin {
 			reservedSpace = DefaultDiskRetainMin
 		}
-		if reservedSpace > DefaultDiskRetainMax {
-			reservedSpace = DefaultDiskRetainMax
-		}
+
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, path string, reservedSpace uint64) {
 			defer wg.Done()
