@@ -2,8 +2,10 @@
 
 #write authkey to authnode.json
 cd ..
-cp -r ./docker/authnode/. ./build/bin
-cd build/bin
+cd ..
+cp ./build/bin/cfs-server /home/wuwenjia/gocode/src/github.com/chubaofs/chubaofs/docker/authnode/
+cp ./build/bin/cfs-authtool /home/wuwenjia/gocode/src/github.com/chubaofs/chubaofs/docker/authnode/
+cd docker/authnode
 ./cfs-authtool authkey
 authnodeKey=$(sed -n '3p' authservice.json | sed 's/key/authServiceKey/g')
 authnodeRootKey=$(sed -n '3p' authroot.json | sed 's/key/authRootKey/g')
@@ -14,13 +16,13 @@ sed -i "${line}i ${authnodeRootKey}" authnode3.json
 sed -i "${line}i ${authnodeKey}" authnode1.json
 sed -i "${line}i ${authnodeKey}" authnode2.json
 sed -i "${line}i ${authnodeKey}" authnode3.json
+
 #start authnode
-./build.sh      #TODO 需要吗？
 docker-compose up -d
 sleep 2s
 
 #get ticket for auth
-./cfs-authtool ticket -host=192.168.0.14:8080 -keyfile=./keyring.json -output=./ticket_auth.json getticket AuthService
+./cfs-authtool ticket -host=192.168.0.14:8080 -keyfile=./authservice.json -output=./ticket_auth.json getticket AuthService
 sleep 2s
 #create admin
 ./cfs-authtool api -host=192.168.0.14:8080 -ticketfile=./ticket_auth.json -data=./data_admin.json -output=./key_admin.json AuthService createkey
@@ -44,9 +46,10 @@ sed -i "${lineMaster}i ${masterKey}" docker/conf/master2.json
 sed -i "${lineMaster}i ${masterKey}" docker/conf/master3.json
 
 #delete temp files
-rm -f ./build/bin/keyring.json
-rm -f ./build/bin/ticket_auth.json
-rm -f ./build/bin/key_admin.json
-rm -f ./build/bin/ticket_admin.json
-rm -f ./build/bin/key_master.json
-rm -f ./build/bin/key_client.json
+rm -f ./docker/authnode/authservice.json
+rm -f ./docker/authnode/authroot.json
+rm -f ./docker/authnode/ticket_auth.json
+rm -f ./docker/authnode/key_admin.json
+rm -f ./docker/authnode/ticket_admin.json
+rm -f ./docker/authnode/key_master.json
+rm -f ./docker/authnode/key_client.json

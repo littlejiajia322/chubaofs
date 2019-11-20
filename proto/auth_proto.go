@@ -161,17 +161,8 @@ const (
 	// MsgMasterAPIAccessResp response type for master api access
 	MsgMasterAPIAccessResp MsgType = 0x60001
 
-	//Master API AdminGetIP
-	MsgMasterUpdateClusterInfoReq MsgType = MsgMasterAPIAccessReq + 0x10000
-
-	//Master API ClientDataPartitions
-	MsgMasterUpdateDataPartitionReq MsgType = MsgMasterAPIAccessReq + 0x20000
-
 	//Master API ClientVol
-	MsgMasterFetchVolViewReq MsgType = MsgMasterAPIAccessReq + 0x30000
-
-	//Master API ClientVolStat
-	MsgMasterUpdateVolStateInfoReq MsgType = MsgMasterAPIAccessReq + 0x40000
+	MsgMasterFetchVolViewReq MsgType = MsgMasterAPIAccessReq + 0x10000
 )
 
 // HTTPAuthReply uniform response structure
@@ -192,10 +183,7 @@ var MsgType2ResourceMap = map[MsgType]string{
 	MsgAuthAddRaftNodeReq:    "auth:addnode",
 	MsgAuthRemoveRaftNodeReq: "auth:removenode",
 
-	MsgMasterUpdateClusterInfoReq:   "master:updatecluster",
-	MsgMasterUpdateDataPartitionReq: "master:updatedp",
-	MsgMasterFetchVolViewReq:        "master:fetchvolview",
-	MsgMasterUpdateVolStateInfoReq:  "master:updatevolstate",
+	MsgMasterFetchVolViewReq: "master:getvol",
 }
 
 // AuthGetTicketReq defines the message from client to authnode
@@ -298,7 +286,7 @@ func IsValidMsgReqType(serviceID string, msgType MsgType) (err error) {
 
 // IsValidClientID determine the validity of a clientID
 func IsValidClientID(id string) (err error) {
-	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,11}$")
+	re := regexp.MustCompile("^[A-Za-z]{1,1}[A-Za-z0-9_]{0,20}$")
 	if !re.MatchString(id) {
 		err = fmt.Errorf("clientID invalid format [%s]", id)
 		return

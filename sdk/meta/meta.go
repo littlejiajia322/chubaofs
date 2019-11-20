@@ -100,13 +100,13 @@ type Ticket struct {
 func NewMetaWrapper(volname, owner, masterHosts string, authenticate bool, ticketMess auth.TicketMess) (*MetaWrapper, error) {
 	mw := new(MetaWrapper)
 	if authenticate {
-		ticket, err := getTicketFromAuthnode(volname, ticketMess)
+		ticket, err := getTicketFromAuthnode(owner, ticketMess)
 		if err != nil {
 			return nil, errors.Trace(err, "Get ticket from authnode failed!")
 		}
 		mw.authenticate = authenticate
 		mw.accessToken.Ticket = ticket.Ticket
-		mw.accessToken.ClientID = volname
+		mw.accessToken.ClientID = owner
 		mw.accessToken.ServiceID = proto.MasterServiceID
 		mw.sessionKey = ticket.SessionKey
 		mw.ticketMess = ticketMess
@@ -201,7 +201,7 @@ func statusToErrno(status int) error {
 	return syscall.EIO
 }
 
-func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket Ticket, err error) {
+func getTicketFromAuthnode(owner string, ticketMess auth.TicketMess) (ticket Ticket, err error) {
 	var (
 		key      []byte
 		ts       int64
@@ -219,7 +219,7 @@ func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket T
 	// construct request body
 	message := proto.AuthGetTicketReq{
 		Type:      proto.MsgAuthTicketReq,
-		ClientID:  volName,
+		ClientID:  owner,
 		ServiceID: proto.MasterServiceID,
 	}
 
@@ -240,7 +240,7 @@ func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket T
 	}
 
 	authnode := strings.Split(ticketMess.TicketHost, HostsSeparator)
-	//TODO 如果是key等本身的错误，不用重试
+	//TODO don't retry if the param is wrong
 	for i := 0; i < GetTicketMaxRetry; i++ {
 		for _, ip := range authnode {
 			url = urlProto + ip + proto.ClientGetTicket
@@ -250,21 +250,19 @@ func getTicketFromAuthnode(volName string, ticketMess auth.TicketMess) (ticket T
 				continue
 			}
 
-			fmt.Printf("\n" + string(body) + "\n")
-
 			if msgResp, err = proto.ParseAuthGetTicketResp(body, key); err != nil {
 				continue
 			}
 
-			if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, volName, "MasterService", ts); err != nil {
+			if err = proto.VerifyTicketRespComm(&msgResp, proto.MsgAuthTicketReq, owner, "MasterService", ts); err != nil {
 				continue
 			}
 
 			ticket.Ticket = msgResp.Ticket
 			ticket.ServiceID = msgResp.ServiceID
 			ticket.SessionKey = cryptoutil.Base64Encode(msgResp.SessionKey.Key)
-			ticket.ID = volName
-
+			ticket.ID = owner
+			cfslog.LogInfof("GetTicket: ok!")
 			return
 		}
 		cfslog.LogWarnf("GetTicket: getReply error and will RETRY, url(%v) err(%v)", url, err)

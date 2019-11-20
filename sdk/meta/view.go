@@ -57,6 +57,7 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 		return nil, err
 	}
 	params["authKey"] = authKey
+	var dataBody []byte
 	if mw.authenticate {
 		mw.accessToken.Type = proto.MsgMasterFetchVolViewReq
 		tokenMessage, ts, err := genMasterToken(mw.accessToken, mw.sessionKey)
@@ -70,48 +71,25 @@ func (mw *MetaWrapper) fetchVolumeView() (*VolumeView, error) {
 			log.LogWarnf("fetchVolumeView request: err(%v)", err)
 			return nil, err
 		}
-		getVolResp := new(proto.GetVolResponse)
-		if err = json.Unmarshal(body, getVolResp); err != nil {
-			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
+		dataBody, err = mw.parseRespWithAuth(body, ts)
+		if err != nil {
+			log.LogWarnf("fetchVolumeView request: err(%v)", err)
 			return nil, err
 		}
-		if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
-			log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, getVolResp.CheckMess)
-			return nil, err
-		}
-		var viewBody = &struct {
-			Code int32  `json:"code"`
-			Msg  string `json:"msg"`
-			Data json.RawMessage
-		}{}
-		if err = json.Unmarshal(getVolResp.VolViewCache, viewBody); err != nil {
-			log.LogWarnf("VolViewCache unmarshal: err(%v) body(%v)", err, viewBody)
-			return nil, err
-		}
-		if viewBody.Code != 0 {
-			return nil, fmt.Errorf("request error, code[%d], msg[%s]", viewBody.Code, viewBody.Msg)
-		}
-		view := new(VolumeView)
-		if err = json.Unmarshal([]byte(viewBody.Data), view); err != nil {
-			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string([]byte(viewBody.Data)))
-			return nil, err
-		}
-		log.LogInfof("fetchVolumeView ok: %v", view)
-		return view, nil
 	} else {
 		body, err := mw.master.Request(http.MethodPost, proto.ClientVol, params, nil)
 		if err != nil {
 			log.LogWarnf("fetchVolumeView request: err(%v)", err)
 			return nil, err
 		}
-
-		view := new(VolumeView)
-		if err = json.Unmarshal(body, view); err != nil {
-			log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
-			return nil, err
-		}
-		return view, nil
+		dataBody = body
 	}
+	view := new(VolumeView)
+	if err = json.Unmarshal(dataBody, view); err != nil {
+		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(dataBody))
+		return nil, err
+	}
+	return view, nil
 }
 
 // fetch and update cluster info if successful
@@ -241,7 +219,7 @@ func genMasterToken(req proto.APIAccessReq, key string) (message string, ts int6
 }
 
 func (mw *MetaWrapper) updateTicket() error {
-	ticket, err := getTicketFromAuthnode(mw.volname, mw.ticketMess)
+	ticket, err := getTicketFromAuthnode(mw.owner, mw.ticketMess)
 	if err != nil {
 		return errors.Trace(err, "Update ticket from authnode failed!")
 	}
@@ -268,6 +246,31 @@ func (mw *MetaWrapper) verifyResponse(checkMess string, serviceID string, ts int
 	if err = json.Unmarshal(plaintext, &resp); err != nil {
 		return
 	}
-	return proto.VerifyAPIRespComm(&resp, mw.accessToken.Type, mw.volname, serviceID, ts)
+	return proto.VerifyAPIRespComm(&resp, mw.accessToken.Type, mw.owner, serviceID, ts)
 
+}
+
+func (mw *MetaWrapper) parseRespWithAuth(body []byte, ts int64) (dataBody []byte, err error) {
+	getVolResp := new(proto.GetVolResponse)
+	if err = json.Unmarshal(body, getVolResp); err != nil {
+		log.LogWarnf("fetchVolumeView unmarshal: err(%v) body(%v)", err, string(body))
+		return nil, err
+	}
+	if err = mw.verifyResponse(getVolResp.CheckMess, proto.MasterServiceID, ts); err != nil {
+		log.LogWarnf("fetchVolumeView verify response: err(%v) body(%v)", err, getVolResp.CheckMess)
+		return nil, err
+	}
+	var viewBody = &struct {
+		Code int32  `json:"code"`
+		Msg  string `json:"msg"`
+		Data json.RawMessage
+	}{}
+	if err = json.Unmarshal(getVolResp.VolViewCache, viewBody); err != nil {
+		log.LogWarnf("VolViewCache unmarshal: err(%v) body(%v)", err, viewBody)
+		return nil, err
+	}
+	if viewBody.Code != 0 {
+		return nil, fmt.Errorf("request error, code[%d], msg[%s]", viewBody.Code, viewBody.Msg)
+	}
+	return viewBody.Data, err
 }

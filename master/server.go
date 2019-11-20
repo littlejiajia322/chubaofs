@@ -49,6 +49,7 @@ const (
 
 var (
 	volNameRegexp *regexp.Regexp
+	ownerRegexp   *regexp.Regexp
 	useConnPool   = true //for test
 	gConfig       *clusterConfig
 )
@@ -91,8 +92,10 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 		log.LogError(errors.Stack(err))
 		return
 	}
-	pattern := "^[a-zA-Z0-9_-]{3,256}$"
-	volNameRegexp, err = regexp.Compile(pattern)
+	volnamePattern := "^[a-zA-Z0-9_-]{3,256}$"
+	volNameRegexp, err = regexp.Compile(volnamePattern)
+	ownerPattern := "^[A-Za-z]{1,1}[A-Za-z0-9_]{0,20}$"
+	ownerRegexp, err = regexp.Compile(ownerPattern)
 	if err != nil {
 		log.LogError(err)
 		return

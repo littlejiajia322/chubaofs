@@ -981,8 +981,7 @@ func parseRequestToCreateVol(r *http.Request) (name, owner string, mpCount, size
 	if name, err = extractName(r); err != nil {
 		return
 	}
-	if owner = r.FormValue(volOwnerKey); owner == "" {
-		err = keyNotFound(volOwnerKey)
+	if owner, err = extractOwner(r); err != nil {
 		return
 	}
 
@@ -1491,6 +1490,18 @@ func extractName(r *http.Request) (name string, err error) {
 	return
 }
 
+func extractOwner(r *http.Request) (owner string, err error) {
+	if owner = r.FormValue(volOwnerKey); owner == "" {
+		err = keyNotFound(volOwnerKey)
+		return
+	}
+	if !ownerRegexp.MatchString(owner) {
+		return "", errors.New("owner can only be number and letters")
+	}
+
+	return
+}
+
 func parseAndCheckTicket(r *http.Request, key []byte) (jobj proto.APIAccessReq, ticket cryptoutil.Ticket, ts int64, err error) {
 	var (
 		plaintext []byte
@@ -1507,11 +1518,13 @@ func parseAndCheckTicket(r *http.Request, key []byte) (jobj proto.APIAccessReq, 
 	if err = json.Unmarshal([]byte(plaintext), &jobj); err != nil {
 		return
 	}
-	//TODO volname的验证，本来有吗？合规吗？
+
 	if err = proto.VerifyAPIAccessReqIDs(&jobj); err != nil {
 		return
 	}
+
 	ticket, ts, err = extractTicketMess(&jobj, key)
+
 	return
 }
 

@@ -23,30 +23,30 @@ EOF
 
 
 clean() {
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml down
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml down
 }
 
 # test & build
 build() {
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml run build
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml run build
 }
 
 # start server
 start_servers() {
     mkdir -p ${DiskPath}/{1..4}
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml up -d servers
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml up -d servers
 }
 
 start_client() {
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml run client bash -c "/cfs/script/start_client.sh ; /bin/bash"
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml run client bash -c "/cfs/script/start_client.sh ; /bin/bash"
 }
 
 start_monitor() {
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml up -d monitor
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml up -d monitor
 }
 
 start_ltptest() {
-    docker-compose -f ${RootPath}/docker/docker-compose_auth2.yml run client
+    docker-compose -f ${RootPath}/docker/docker-compose-auth.yml run client
 }
 
 run_ltptest() {
