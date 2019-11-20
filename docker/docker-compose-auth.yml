@@ -1,7 +1,7 @@
 version: '2.1'
 
 networks:
-  bin_extnetwork:
+  authnode_extnetwork:
     external: true
 
 services:
@@ -12,7 +12,7 @@ services:
       - prometheus
       - grafana
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   servers:
     image: chubaofs/cfs-base:1.0
@@ -28,7 +28,7 @@ services:
       - datanode3
       - datanode4
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   master1:
     image: chubaofs/cfs-base:1.0
@@ -46,7 +46,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
         ipv4_address: 192.168.0.11
 
   master2:
@@ -65,7 +65,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
         ipv4_address: 192.168.0.12
   master3:
     image: chubaofs/cfs-base:1.0
@@ -83,7 +83,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
         ipv4_address: 192.168.0.13
 
   metanode1:
@@ -102,7 +102,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   metanode2:
     image: chubaofs/cfs-base:1.0
@@ -120,7 +120,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   metanode3:
     image: chubaofs/cfs-base:1.0
@@ -138,7 +138,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   datanode1:
     image: chubaofs/cfs-base:1.0
@@ -157,7 +157,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   datanode2:
     image: chubaofs/cfs-base:1.0
@@ -176,7 +176,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   datanode3:
     image: chubaofs/cfs-base:1.0
@@ -195,7 +195,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   datanode4:
     image: chubaofs/cfs-base:1.0
@@ -214,7 +214,7 @@ services:
     restart: on-failure
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   client:
     image: chubaofs/cfs-base:1.0
@@ -233,7 +233,7 @@ services:
       - SYS_ADMIN
     command: /bin/bash /cfs/script/start.sh
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   consul:
     image: consul:1.5
@@ -243,7 +243,7 @@ services:
       - ./monitor:/monitor
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
         ipv4_address: 192.168.0.100
 
   prometheus:
@@ -254,7 +254,7 @@ services:
       - ./monitor/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     privileged: true
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
         ipv4_address: 192.168.0.200
 
   grafana:
@@ -270,7 +270,7 @@ services:
     privileged: true
     #command: /bin/bash
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
 
   build:
     image: chubaofs/cfs-base:1.0
@@ -287,4 +287,4 @@ services:
         echo -n 'build client ' ;
         cd /go/src/github.com/chubaofs/chubaofs/client && bash ./build.sh && mv cfs-client /go/src/github.com/chubaofs/chubaofs/docker/bin/cfs-client && echo 'success' || echo "failed" ;
     networks:
-      bin_extnetwork:
+      authnode_extnetwork:
