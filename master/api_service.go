@@ -1360,7 +1360,7 @@ func (m *Server) getVol(w http.ResponseWriter, r *http.Request) {
 		viewCache = vol.getViewCache()
 	}
 	if vol.authenticate {
-		if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey); err != nil {
+		if jobj, ticket, ts, err = parseAndCheckTicket(r, m.cluster.MasterSecretKey, name); err != nil {
 			if err == errors.ErrExpiredTicket {
 				sendErrReply(w, r, newErrHTTPReply(err))
 				return
@@ -1502,7 +1502,7 @@ func extractOwner(r *http.Request) (owner string, err error) {
 	return
 }
 
-func parseAndCheckTicket(r *http.Request, key []byte) (jobj proto.APIAccessReq, ticket cryptoutil.Ticket, ts int64, err error) {
+func parseAndCheckTicket(r *http.Request, key []byte, volName string) (jobj proto.APIAccessReq, ticket cryptoutil.Ticket, ts int64, err error) {
 	var (
 		plaintext []byte
 	)
@@ -1523,7 +1523,7 @@ func parseAndCheckTicket(r *http.Request, key []byte) (jobj proto.APIAccessReq, 
 		return
 	}
 
-	ticket, ts, err = extractTicketMess(&jobj, key)
+	ticket, ts, err = extractTicketMess(&jobj, key, volName)
 
 	return
 }
@@ -1548,7 +1548,7 @@ func extractClientReqInfo(r *http.Request) (plaintext []byte, err error) {
 	return
 }
 
-func extractTicketMess(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.Ticket, ts int64, err error) {
+func extractTicketMess(req *proto.APIAccessReq, key []byte, volName string) (ticket cryptoutil.Ticket, ts int64, err error) {
 	if ticket, err = proto.ExtractTicket(req.Ticket, key); err != nil {
 		err = fmt.Errorf("extractTicket failed: %s", err.Error())
 		return
@@ -1563,6 +1563,10 @@ func extractTicketMess(req *proto.APIAccessReq, key []byte) (ticket cryptoutil.T
 	}
 	if err = proto.CheckAPIAccessCaps(&ticket, proto.APIRsc, req.Type, proto.APIAccess); err != nil {
 		err = fmt.Errorf("CheckAPIAccessCaps failed: %s", err.Error())
+		return
+	}
+	if err = proto.CheckVOLAccessCaps(&ticket, proto.VOLRsc, volName, proto.VOLAccess, proto.MasterNode); err != nil {
+		err = fmt.Errorf("CheckVOLAccessCaps failed: %s", err.Error())
 		return
 	}
 	return

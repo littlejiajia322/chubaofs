@@ -45,6 +45,8 @@ const (
 	capSeparator  = ":"
 	reqLiveLength = 10
 	ClientMessage = "Token"
+	VOLRsc        = "VOL"
+	VOLAccess     = "*"
 )
 
 // api
@@ -79,6 +81,11 @@ const (
 	DataServiceID = "DatanodeService"
 )
 
+const (
+	MasterNode = "master"
+	MetaNode   = "metanode"
+	DataNode   = "datanode"
+)
 const (
 	// MsgAuthBase define the starting value for auth message
 	MsgAuthBase MsgType = 0x100000
@@ -472,6 +479,18 @@ func CheckAPIAccessCaps(ticket *cryptoutil.Ticket, rscType string, mp MsgType, a
 		err = fmt.Errorf("checkTicketCaps failed: %s", err.Error())
 		return
 	}
+	return
+}
+
+func CheckVOLAccessCaps(ticket *cryptoutil.Ticket, rscType string, volName string, action string, accessNode string) (err error) {
+
+	rule := accessNode + capSeparator + volName + capSeparator + action
+
+	if err = checkTicketCaps(ticket, rscType, rule); err != nil {
+		err = fmt.Errorf("checkTicketCaps failed: %s", err.Error())
+		return
+	}
+
 	return
 }
 
