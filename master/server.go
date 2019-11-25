@@ -44,7 +44,7 @@ const (
 	DefaultRetainLogs = 20000
 	cfgTickInterval   = "tickInterval"
 	cfgElectionTick   = "electionTick"
-	MasterSecretKey   = "masterServiceKey"
+	SecretKey         = "masterServiceKey"
 )
 
 var (
@@ -109,7 +109,7 @@ func (m *Server) Start(cfg *config.Config) (err error) {
 	exporter.Init(ModuleName, cfg)
 	m.cluster.partition = m.partition
 	m.cluster.idAlloc.partition = m.partition
-	MasterSecretKey := cfg.GetString(MasterSecretKey)
+	MasterSecretKey := cfg.GetString(SecretKey)
 	if m.cluster.MasterSecretKey, err = cryptoutil.Base64Decode(MasterSecretKey); err != nil {
 		return fmt.Errorf("action[Start] failed %v,err: master service Key invalid=%s", errors.ErrInvalidCfg, MasterSecretKey)
 	}

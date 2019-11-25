@@ -401,7 +401,7 @@ func checkTicketCaps(ticket *cryptoutil.Ticket, kind string, cap string) (err er
 		return
 	}
 	if b := c.ContainCaps(kind, cap); !b {
-		err = fmt.Errorf("no permission to access api")
+		err = fmt.Errorf("no permission to access %v", kind)
 		return
 	}
 	return
